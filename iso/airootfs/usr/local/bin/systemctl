@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Forsteri E2E diagnostic: when the opt-in install_e2e flag is present, record
+# who asks systemd to power off or reboot. Otherwise this is a transparent
+# passthrough. It never changes the command or its arguments.
+set -u
+
+if grep -q 'forsteri.install_e2e=1' /proc/cmdline 2>/dev/null; then
+  case ${1:-} in
+    poweroff | reboot | halt | suspend | hibernate)
+      {
+        printf 'SYSTEMCTL-TRACE: %s ppid=%s cmd=' "$*" "$PPID"
+        tr '\0' ' ' <"/proc/$PPID/cmdline" 2>/dev/null || true
+        printf '\n'
+      } >>/dev/ttyS0 2>/dev/null || true
+      ;;
+  esac
+fi
+
+exec /usr/bin/systemctl "$@"

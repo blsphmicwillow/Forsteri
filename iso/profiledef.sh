@@ -30,5 +30,6 @@ file_permissions=(
   ["/usr/local/bin/forsteri-install"]="0:0:755"
   ["/usr/local/bin/forsteri-install-reboot-test"]="0:0:755"
   ["/usr/local/bin/forsteri-install-e2e"]="0:0:755"
+  ["/usr/local/bin/systemctl"]="0:0:755"
   ["/usr/local/bin/forsteri-nt-selftest"]="0:0:755"
 )
