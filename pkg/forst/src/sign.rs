@@ -168,7 +168,7 @@ pub fn verify_rpm_package(package: &Path, keyring: &Path) -> Result<()> {
         String::from_utf8_lossy(&checked.stdout),
         String::from_utf8_lossy(&checked.stderr)
     );
-    if !checked.status.success() || text.contains("NOKEY") || text.contains("NOT OK") {
+    if !checked.status.success() || !rpmkeys_has_valid_signature(&text) {
         return err(format!(
             "{}: RPM signature verification failed: {}",
             package.display(),
@@ -176,6 +176,23 @@ pub fn verify_rpm_package(package: &Path, keyring: &Path) -> Result<()> {
         ));
     }
     Ok(())
+}
+
+/// `rpmkeys --checksig` exits 0 for a package whose payload digests are
+/// intact even when the package has no OpenPGP signature; its summary is then
+/// just `digests OK`. Treating exit 0 as authenticated would let unsigned
+/// RPMs through, so require a positive signature line as well. The summary
+/// form is `digests signatures OK`; the verbose form is
+/// `Header V4 RSA/SHA256 Signature, key ID ...: OK`.
+fn rpmkeys_has_valid_signature(text: &str) -> bool {
+    let lower = text.to_ascii_lowercase();
+    if lower.contains("nokey") || lower.contains("not ok") || lower.contains("nottrusted") {
+        return false;
+    }
+    text.lines().any(|line| {
+        let line = line.to_ascii_lowercase();
+        line.contains("signature") && line.contains("ok")
+    })
 }
 
 /// Verify a file against a hex SHA256 that came from signed metadata.
@@ -371,6 +388,26 @@ mod tests {
         let err = verify_rpm_package(Path::new("package.rpm"), &missing)
             .expect_err("a missing RPM keyring must fail closed");
         assert!(err.to_string().contains("keyring"));
+    }
+
+    #[test]
+    fn rpmkeys_requires_a_real_signature_line() {
+        // This is the dangerous case: rpmkeys says the payload digests are
+        // intact and exits 0, but no signature exists.
+        assert!(!rpmkeys_has_valid_signature("package.rpm: digests OK\n"));
+        assert!(!rpmkeys_has_valid_signature("package.rpm: digests SIGNATURES NOT OK\n"));
+        assert!(!rpmkeys_has_valid_signature("package.rpm: NOKEY\n"));
+
+        assert!(rpmkeys_has_valid_signature(
+            "package.rpm: digests signatures OK\n"
+        ));
+        assert!(rpmkeys_has_valid_signature(
+            "Header V4 RSA/SHA256 Signature, key ID 12345678: OK\n"
+        ));
+        // A bad signature anywhere still fails even if another line is OK.
+        assert!(!rpmkeys_has_valid_signature(
+            "Header V4 RSA/SHA256 Signature, key ID 12345678: OK\nPayload SHA256 digest: NOT OK\n"
+        ));
     }
 
     #[test]
