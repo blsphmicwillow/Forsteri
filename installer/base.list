@@ -1,13 +1,14 @@
 # Base system for every Forsteri install.
 #
 # Specs without a codename use the base order (colony, ice, nest), so these are
-# Arch core/extra packages. `@base` is Arch's base group.
+# Arch core/extra packages. `base` is Arch's meta-package; it is not a group
+# (`@base` would fail, since current Arch has no group with that name).
 
 linux
 linux-firmware
 amd-ucode
 intel-ucode
-@base
+base
 
 # Forsteri's own boot experience
 mkinitcpio
