@@ -111,8 +111,9 @@ else
 fi
 
 note "== assets"
-for asset in logo-512.png plymouth-logo.png plymouth-track.png plymouth-comet.png \
-  plymouth-bullet.png grub-background.png wallpaper-aurora.png; do
+for asset in logo-512.png logo-1024.png brand-lockup-light.png plymouth-logo.png \
+  plymouth-track.png plymouth-comet.png plymouth-bullet.png grub-background.png \
+  sddm-background.png wallpaper-aurora.png; do
   if [[ -s branding/dist/$asset ]]; then
     ok "branding/dist/$asset"
   else

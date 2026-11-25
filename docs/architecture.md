@@ -140,7 +140,8 @@ home. Adding a desktop means adding two paths, no installer changes. See
 
 ## Branding
 
-The emblem is code: `branding/render_assets.py` draws it from Bézier control
-points with Pillow and writes every bitmap the boot chain needs (splash logo,
-progress track and comet, GRUB background, wallpaper). The SVG in
-`branding/logo/` is the same geometry for desktop use.
+The canonical mark is supplied artwork in `branding/source/`: a transparent
+emblem, a light lockup and a dark lockup. `branding/render_assets.py` only
+trims, scales and places those files; it does not redraw the penguin or recut
+the wordmark. The resulting bitmaps feed Plymouth (emblem), GRUB (dark lockup),
+SDDM (dark lockup above the form) and the desktop wallpaper (dark lockup).

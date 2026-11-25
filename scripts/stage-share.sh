@@ -22,7 +22,7 @@ required() {
 }
 
 for asset in logo-512.png plymouth-logo.png plymouth-bullet.png plymouth-track.png \
-  plymouth-comet.png grub-background.png wallpaper-aurora.png; do
+  plymouth-comet.png grub-background.png sddm-background.png wallpaper-aurora.png; do
   required "$DIST/$asset"
 done
 
@@ -54,7 +54,7 @@ install -m644 "$DIST/logo-512.png" "$SHARE/wallpapers/forsteri-logo.png"
 # login screen
 install -m644 "$ROOT/desktop/sddm/forsteri/theme.conf" "$SHARE/sddm/theme.conf"
 install -m644 "$ROOT/desktop/sddm/forsteri/Main.qml" "$SHARE/sddm/Main.qml"
-install -m644 "$DIST/wallpaper-aurora.png" "$SHARE/sddm/background.png"
+install -m644 "$DIST/sddm-background.png" "$SHARE/sddm/background.png"
 install -m644 "$DIST/logo-512.png" "$SHARE/sddm/logo.png"
 
 # sessions

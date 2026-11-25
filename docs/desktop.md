@@ -146,13 +146,13 @@ this; it is safe to re-run and skips keys the running desktop does not have.
 
 ## Login screen
 
-SDDM uses `/usr/share/sddm/themes/forsteri`: the wallpaper, the emblem, two
-fields and a gold sign-in button. `/etc/sddm.conf.d/10-forsteri.conf` selects
-the theme and enables numlock. The theme's QML is small on purpose (one
-centred column, `sddm.login(user, password, sessionIndex)`); it has not been
-rendered in this tree, so verify it on first boot with
-`sddm --example-config` or by reading `~/.local/state/sddm.log` if the login
-screen stays blank.
+SDDM uses `/usr/share/sddm/themes/forsteri`: the supplied dark lockup at the
+top of the background, then two fields and a gold sign-in button in a
+bottom-centred column. `/etc/sddm.conf.d/10-forsteri.conf` selects the theme
+and enables numlock. The theme's QML is small on purpose (one column,
+`sddm.login(user, password, sessionIndex)`); it has not been rendered in this
+tree, so verify it on first boot with `sddm --example-config` or by reading
+`~/.local/state/sddm.log` if the login screen stays blank.
 
 ## Adding a desktop
 

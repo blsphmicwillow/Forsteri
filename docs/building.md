@@ -7,7 +7,7 @@ Two artefacts can be built: the ISO, and the `nest` package repository.
 | what | why |
 |------|-----|
 | Rust (cargo, 1.70+) | builds `forst`; no crates are downloaded |
-| Python 3 + Pillow | renders the brand assets (committed copies also work) |
+| Python 3 + Pillow | scales the supplied brand artwork into install assets |
 | archiso 92-1 + mkinitcpio 42.2-1 | pinned ISO tools; see `iso/tool-versions.env` |
 | docker | alternative: builds the ISO inside `archlinux:latest` |
 | pacman tools (`makepkg`, `repo-add`) | builds `nest` packages |
@@ -25,7 +25,7 @@ The script:
 
 1. `scripts/build-forst.sh` -- `cargo build --release`, installs the binary to
    `iso/airootfs/usr/local/bin/forst` and prints its version.
-2. `branding/render_assets.py` -- regenerates `branding/dist/*.png`.
+2. `branding/render_assets.py` -- derives `branding/dist/*.png` from `branding/source/*.webp`.
 3. `scripts/stage-share.sh` -- copies branding, profiles, skel homes, the SDDM
    theme and the session entry into `iso/airootfs/usr/share/forsteri/`.
 4. `scripts/build-nt-module.sh` -- builds `ntpersonality.ko` from the Frost

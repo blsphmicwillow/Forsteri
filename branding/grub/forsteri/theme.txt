@@ -1,6 +1,6 @@
 # Forsteri boot menu.
 #
-# Flat and quiet: the emblem above, one highlighted line, no boxes.
+# Flat and quiet: the supplied lockup above, one highlighted line, no boxes.
 # GRUB renders this at whatever resolution the firmware picked; the background
 # is 1920x1080 and is stretched by GRUB.
 

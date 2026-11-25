@@ -1,8 +1,9 @@
 // Forsteri OS -- SDDM login
 //
-// One centred column: emblem, username, password, a gold sign-in button.
-// Sessions are picked from the session model so Hyprland, MangoWC, GNOME and
-// Plasma all appear in the same list.
+// The supplied lockup sits at the top of the background; username, password
+// and the gold sign-in button form a single column below it. Sessions are
+// picked from the session model so Hyprland, MangoWC, GNOME and Plasma all
+// appear in the same list.
 
 import QtQuick 2.15
 import QtQuick.Controls 2.15
@@ -21,38 +22,14 @@ Rectangle {
         anchors.fill: parent
         source: config.background
         fillMode: Image.PreserveAspectCrop
-        opacity: 0.85
-    }
-
-    Rectangle {
-        anchors.fill: parent
-        gradient: Gradient {
-            GradientStop { position: 0.0; color: Qt.rgba(0.043, 0.043, 0.055, 0.55) }
-            GradientStop { position: 1.0; color: Qt.rgba(0.043, 0.043, 0.055, 0.92) }
-        }
     }
 
     ColumnLayout {
-        anchors.centerIn: parent
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        anchors.bottomMargin: 84
         spacing: 14
         width: 320
-
-        Image {
-            source: "logo.png"
-            Layout.alignment: Qt.AlignHCenter
-            Layout.preferredWidth: 92
-            Layout.preferredHeight: 92
-            fillMode: Image.PreserveAspectFit
-        }
-
-        Text {
-            Layout.alignment: Qt.AlignHCenter
-            Layout.bottomMargin: 6
-            text: "Forsteri OS"
-            color: "#f7f1e1"
-            font.pixelSize: 20
-            font.letterSpacing: 2
-        }
 
         TextField {
             id: userField

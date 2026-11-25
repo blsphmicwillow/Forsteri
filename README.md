@@ -115,7 +115,7 @@ iso/                archiso profile: boot menus, live root, installer
 installer/          base package list used by the installer
 desktop/            per-desktop profiles, skel homes, Hyprland/Waybar,
                     Quickshell, SDDM theme, GTK + KDE theming
-branding/           emblem (SVG + generated PNGs), Plymouth splash, GRUB theme
+branding/           supplied artwork + generated PNGs, Plymouth, GRUB, SDDM
 packages/           PKGBUILDs for the `nest` codename
 scripts/            build-forst, stage-share, build-iso, make-repo, check
 docs/               architecture, codenames, install, desktop, building
