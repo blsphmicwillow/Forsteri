@@ -12,6 +12,12 @@ install_base() {
 forst is doing the work; this takes a few minutes."
   # The live root is a small overlay; a base system does not fit in its
   # cache. Keep downloaded packages on the target, which has the real disk.
+  # forst keeps indexes and packages in the same cache, so carry the indexes
+  # that the live boot already synced and verified over to the target.
+  install -d "$TARGET/var/cache/forst/index"
+  if [[ -d /var/cache/forst/index ]]; then
+    cp -a /var/cache/forst/index/. "$TARGET/var/cache/forst/index/"
+  fi
   run_logged "base install" \
     forst --root "$TARGET" --cache "$TARGET/var/cache/forst" \
       --conf /etc/forst/repos.conf --strict --yes install "${specs[@]}" ||
