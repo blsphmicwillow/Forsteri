@@ -122,6 +122,14 @@ else
   note "--   skipped; gpg and gpgv are needed for the local signed package"
 fi
 
+note "== live boot"
+if [[ -L iso/airootfs/etc/systemd/system/systemd-firstboot.service && \
+  $(readlink iso/airootfs/etc/systemd/system/systemd-firstboot.service) == /dev/null ]]; then
+  ok "systemd-firstboot is masked in the live image"
+else
+  bad "live image must mask systemd-firstboot; otherwise tty1 gets Initial Setup, not the installer"
+fi
+
 note "== assets"
 for asset in logo-512.png logo-1024.png brand-lockup-light.png plymouth-logo.png \
   plymouth-track.png plymouth-comet.png plymouth-bullet.png grub-background.png \

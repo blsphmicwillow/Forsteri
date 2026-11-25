@@ -151,15 +151,27 @@ The fastfetch logo was generated from `branding/source/emblem.webp` with
 Its near-black shades are lifted slightly so the penguin silhouette remains
 visible on the dark terminal, while the gold, ivory and coral are unchanged.
 
+Skel files are copied only when a home is created. Existing homes added before
+the fastfetch bundle can pick it up without touching the rest of their config:
+
+```bash
+mkdir -p ~/.config/fastfetch
+cp -a /etc/skel/.config/fastfetch/. ~/.config/fastfetch/
+fastfetch --config ~/.config/fastfetch/config.jsonc
+```
+
 ## Login screen
 
 SDDM uses `/usr/share/sddm/themes/forsteri`: the supplied dark lockup at the
 top of the background, then two fields and a gold sign-in button in a
 bottom-centred column. `/etc/sddm.conf.d/10-forsteri.conf` selects the theme
 and enables numlock. The theme's QML is small on purpose (one column,
-`sddm.login(user, password, sessionIndex)`); it has not been rendered in this
-tree, so verify it on first boot with `sddm --example-config` or by reading
-`~/.local/state/sddm.log` if the login screen stays blank.
+`sddm.login(user, password, sessionIndex)`). It has been rendered offscreen
+with Qt 6/PySide6 against mocked `config`/`userModel`/`sessionModel` objects:
+the lockup loads, the last user is prefilled, and the form sits bottom-centred.
+That exercises the real `Main.qml`, but not a live SDDM greeter or a full
+desktop session; check `~/.local/state/sddm.log` on first boot if it stays
+blank.
 
 ## Adding a desktop
 

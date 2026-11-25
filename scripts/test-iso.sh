@@ -35,19 +35,31 @@ if [[ -r /dev/kvm && -w /dev/kvm ]]; then
 	accel=(-accel kvm)
 fi
 
-set +e
-timeout "$TIMEOUT" "$QEMU" "${accel[@]}" -cpu max -m 2048 -smp 2 \
+"$QEMU" "${accel[@]}" -cpu max -m 2048 -smp 2 \
 	-display none -no-reboot -boot order=d \
 	-cdrom "$ISO" -kernel "$WORK/vmlinuz-linux" \
 	-initrd "$WORK/initramfs-linux.img" \
 	-append "archisobasedir=forsteri archisolabel=$label console=ttyS0 forsteri.nt_test=1" \
-	-serial "file:$LOG"
-status=$?
-set -e
+	-serial "file:$LOG" &
+qpid=$!
 
-if [[ $status -eq 124 ]]; then
-	echo "test-iso: QEMU hit the ${TIMEOUT}s timeout" >&2
-fi
+deadline=$((SECONDS + TIMEOUT))
+while kill -0 "$qpid" 2>/dev/null; do
+	if grep -q 'FORSTERI-NT-TEST: PASS' "$LOG" 2>/dev/null; then
+		kill "$qpid" 2>/dev/null || true
+		wait "$qpid" 2>/dev/null || true
+		echo "test-iso: PASS ($LOG)"
+		exit 0
+	fi
+	if (( SECONDS >= deadline )); then
+		echo "test-iso: QEMU hit the ${TIMEOUT}s timeout" >&2
+		kill "$qpid" 2>/dev/null || true
+		wait "$qpid" 2>/dev/null || true
+		break
+	fi
+	sleep 1
+done
+wait "$qpid" 2>/dev/null || true
 
 if grep -q 'FORSTERI-NT-TEST: PASS' "$LOG"; then
 	echo "test-iso: PASS ($LOG)"
@@ -55,5 +67,5 @@ if grep -q 'FORSTERI-NT-TEST: PASS' "$LOG"; then
 fi
 
 echo "test-iso: FAIL ($LOG)"
-grep -E 'FORSTERI-NT-TEST|ntpersonality|archiso|Kernel panic|not syncing' "$LOG" | tail -40 || true
+grep -E 'FORSTERI-NT-TEST|ntpersonality|archiso|Kernel panic|not syncing|Initial Setup|forsteri-install' "$LOG" | tail -60 || true
 exit 1
