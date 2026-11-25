@@ -1,0 +1,100 @@
+#!/usr/bin/env bash
+# Forsteri installer: real-reboot state test (opt-in with the kernel cmdline
+# forsteri.install_reboot_test=1). This never runs on a normal live boot.
+#
+# First boot writes a phase file to the target's EFI partition and reboots.
+# The second boot asks forsteri-install --resume-probe to discover it from the
+# unmounted disk; PASS means the state survived an actual VM reboot and the
+# installer's read-only scanner found the EFI mirror.
+set -euo pipefail
+
+. /usr/lib/forsteri/installer/state.sh
+
+DISK=${FORSTERI_INSTALL_TEST_DISK:-/dev/vda}
+ROOT_PART="${DISK}2"
+EFI_PART="${DISK}1"
+TARGET=/mnt/forsteri-state-test
+STATE_NAME=.forsteri-install.state
+
+fail() {
+  echo "FORSTERI-INSTALL-REBOOT-TEST: FAIL: $*"
+  sync
+  systemctl poweroff -f || true
+  exit 1
+}
+
+[[ -b $DISK ]] || fail "$DISK is not a block device"
+mkdir -p "$TARGET"
+
+second_boot=0
+if [[ -b $ROOT_PART ]] && mount -o ro "$ROOT_PART" "$TARGET" 2>/dev/null; then
+  if [[ -f "$TARGET/$STATE_NAME" ]]; then
+    second_boot=1
+  fi
+  umount "$TARGET" 2>/dev/null || true
+fi
+if (( second_boot == 0 )) && [[ -b $EFI_PART ]] &&
+  mount -o ro "$EFI_PART" "$TARGET" 2>/dev/null; then
+  if [[ -f "$TARGET/$STATE_NAME" ]]; then
+    second_boot=1
+  fi
+  umount "$TARGET" 2>/dev/null || true
+fi
+
+if (( second_boot == 1 )); then
+  echo "FORSTERI-INSTALL-REBOOT-TEST: checking state from the previous boot"
+  out=$(forsteri-install --resume-probe "$DISK" 2>&1) ||
+    fail "resume probe did not find the target state: $out"
+  echo "$out"
+
+  grep -qx 'disk='"$DISK"'$' <<<"$out" || fail "wrong disk in state"
+  grep -qx 'phase=base-installing$' <<<"$out" || fail "wrong phase in state"
+  grep -qx 'rootpart='"$ROOT_PART"'$' <<<"$out" ||
+    fail "wrong root partition in state"
+  grep -qx 'efipart='"$EFI_PART"'$' <<<"$out" ||
+    fail "wrong EFI partition in state"
+  grep -qx 'fs=ext4$' <<<"$out" || fail "wrong filesystem in state"
+
+  echo "FORSTERI-INSTALL-REBOOT-TEST: PASS"
+  sync
+  systemctl poweroff -f || true
+  exit 0
+fi
+
+echo "FORSTERI-INSTALL-REBOOT-TEST: first boot; writing target state"
+wipefs --all --force "$DISK" >/dev/null 2>&1 || fail "wipefs failed"
+sgdisk --zap-all "$DISK" >/dev/null 2>&1 || fail "sgdisk zap failed"
+sgdisk --new=1:0:+512M --typecode=1:ef00 \
+  --change-name=1:FORSTERI-EFI "$DISK" >/dev/null 2>&1 ||
+  fail "could not create the EFI partition"
+sgdisk --new=2:0:0 --typecode=2:8304 \
+  --change-name=2:FORSTERI-ROOT "$DISK" >/dev/null 2>&1 ||
+  fail "could not create the root partition"
+partprobe "$DISK" >/dev/null 2>&1 || true
+udevadm settle --timeout=10 || true
+
+mkfs.ext4 -F -L Forsteri "$ROOT_PART" >/dev/null 2>&1 ||
+  fail "could not format $ROOT_PART"
+mkfs.fat -F 32 -n FORSTERI-EFI "$EFI_PART" >/dev/null 2>&1 ||
+  fail "could not format $EFI_PART"
+mount "$ROOT_PART" "$TARGET" || fail "could not mount $ROOT_PART"
+mkdir -p "$TARGET/efi"
+mount "$EFI_PART" "$TARGET/efi" || fail "could not mount $EFI_PART"
+
+FORSTERI_STATE_FILE="$TARGET/$STATE_NAME"
+state_set disk "$DISK"
+state_set rootpart "$ROOT_PART"
+state_set efipart "$EFI_PART"
+state_set fs ext4
+state_set phase base-installing
+state_attach_target "$TARGET" || fail "could not mirror state"
+# Leave the EFI mirror as the only copy so the next boot must discover it from
+# the unmounted EFI partition, not from the root filesystem.
+rm -f "$TARGET/$STATE_NAME"
+sync
+umount -R "$TARGET/efi" || fail "could not unmount the EFI partition"
+umount "$TARGET" || fail "could not unmount $TARGET"
+
+echo "FORSTERI-INSTALL-REBOOT-TEST: REBOOTING"
+sync
+systemctl reboot -f || true

@@ -58,6 +58,11 @@ jobs:
         env:
           TIMEOUT: "600"
         run: ./scripts/test-iso.sh
+      - name: Reboot the VM and rediscover installer state
+        working-directory: distro
+        env:
+          TIMEOUT: "300"
+        run: ./scripts/test-installer-reboot.sh
       - name: Upload the ISO and serial log
         if: always()
         uses: actions/upload-artifact@v4
@@ -66,5 +71,6 @@ jobs:
           path: |
             distro/out/*.iso
             distro/build/iso-test/serial.log
+            distro/build/installer-reboot-test/*.log
           if-no-files-found: warn
           retention-days: 7

@@ -5,6 +5,8 @@
 #   forsteri-install --check        lint the installer's data files, touch nothing
 #   forsteri-install --validate-only
 #                                   run every probe and print the plan; no writes
+#   forsteri-install --resume-probe DISK
+#                                   read target state read-only and report it
 #
 # The installer is a thin front end over forst: it partitions, then asks forst
 # to install package specs into /mnt, then does the first-boot configuration
@@ -117,6 +119,31 @@ check_tools() {
 }
 
 case ${1:-} in
+  --resume-probe)
+    probe_disk=${2:-}
+    [[ -n $probe_disk ]] || {
+      echo "usage: forsteri-install --resume-probe /dev/DISK" >&2
+      exit 2
+    }
+    (( EUID == 0 )) || {
+      echo "forsteri-install: --resume-probe needs root to mount the target read-only" >&2
+      exit 1
+    }
+    [[ -b $probe_disk ]] || {
+      echo "forsteri-install: $probe_disk is not a block device" >&2
+      exit 1
+    }
+    if ! state_scan_disk "$probe_disk"; then
+      echo "forsteri-install: no resume state on $probe_disk"
+      exit 1
+    fi
+    echo "resume state: $STATE_SCAN_PART"
+    for key in disk phase rootpart efipart fs; do
+      printf '%s=%s\n' "$key" "$(state_get_file "$STATE_SCAN_FILE" "$key")"
+    done
+    state_scan_cleanup
+    exit 0
+    ;;
   --check)
     echo "forsteri-install: self-check"
     check_tools
@@ -217,6 +244,37 @@ if ! run_logged "sync" forst --conf /etc/forst/repos.conf sync; then
 fi
 
 pick_disk || exit 0
+
+# Look for state written to the target by a previous boot before asking to
+# erase anything. This is deliberately before confirm_wipe.
+RESUME_FOUND=0
+if state_scan_disk "${CFG[disk]}"; then
+  resume_phase=$(state_get_file "$STATE_SCAN_FILE" phase)
+  if [[ $resume_phase == complete ]]; then
+    ui_msg "Already installed" "The target disk already carries a completed Forsteri install (${CFG[disk]}).
+
+Remove the state file on that disk to install again."
+    state_scan_cleanup
+    exit 0
+  fi
+  if ui_yesno "Resume interrupted install" "Found an interrupted install on ${CFG[disk]}.
+
+Phase: $resume_phase
+
+The installer will continue from that phase without erasing the disk again."; then
+    state_import_scan || die "could not import the resume state"
+    RESUME_FOUND=1
+    CFG[rootpart]=$(state_get rootpart)
+    CFG[efipart]=$(state_get efipart)
+    [[ ${CFG[efipart]:-} ]] || CFG[efipart]=""
+    if [[ $(state_get fs) ]]; then
+      CFG[fs]=$(state_get fs)
+    fi
+    log "resume state found on $STATE_SCAN_PART: phase $resume_phase"
+  fi
+  state_scan_cleanup
+fi
+
 CFG[gpu]=$(gpu_vendor)
 CFG[dual]=$(detect_dual_boot)
 if [[ ${CFG[dual]} == yes ]]; then
@@ -225,12 +283,14 @@ if [[ ${CFG[dual]} == yes ]]; then
 Forsteri installs on one disk and erases every partition on it. Back up any
 Windows installation before continuing. The detected disk is ${CFG[disk]}."
 fi
-confirm_wipe || exit 0
+if (( RESUME_FOUND == 0 )); then
+  confirm_wipe || exit 0
 
-answer=$(ui_menu "Filesystem" "Choose the filesystem for the root partition." \
-  ext4 "ext4 -- the safe default" \
-  btrfs "btrfs -- snapshots, no subvolumes") || exit 0
-CFG[fs]=$answer
+  answer=$(ui_menu "Filesystem" "Choose the filesystem for the root partition." \
+    ext4 "ext4 -- the safe default" \
+    btrfs "btrfs -- snapshots, no subvolumes") || exit 0
+  CFG[fs]=$answer
+fi
 
 while :; do
   answer=$(ui_input "Hostname" "Name this machine." "${CFG[hostname]}") || exit 0
@@ -296,7 +356,7 @@ ui_yesno "Install" "Ready to install.
   gpu         ${CFG[gpu]}
   dual-boot   ${CFG[dual]}
 
-This erases ${CFG[disk]}." || exit 0
+This erases ${CFG[disk]} unless resuming." || exit 0
 
 # ---------------------------------------------------------------------------
 # resume-aware disk phases
@@ -323,6 +383,7 @@ else
   state_clear
   state_set disk "${CFG[disk]}"
   state_set firmware "${CFG[firmware]}"
+  state_set fs "${CFG[fs]}"
 fi
 
 if (( resume )) && state_reached partitioned && [[ -b ${CFG[rootpart]:-} ]]; then
@@ -348,6 +409,7 @@ fi
 
 mount_target
 MOUNTED=1
+state_attach_target "$TARGET" || die "could not write the resume state to the target"
 state_set phase mounted
 
 if (( resume )) && state_reached base-installed; then

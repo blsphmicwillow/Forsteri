@@ -44,6 +44,36 @@ state_clear
 [[ ! -e $FORSTERI_STATE_FILE ]] && ok "state_clear" || bad "state_clear"
 [[ $(state_phase) == "" ]] && ok "cleared state has no phase" || bad "cleared state"
 
+# Target attachment is the reboot-safe half: state lives on the target after
+# the root is mounted, not only on the live tmpfs.
+FORSTERI_STATE_FILE=$tmp/live
+state_set disk /dev/vda
+root=$tmp/target
+mkdir -p "$root"
+state_attach_target "$root" && ok "attach target state" || bad "attach target state"
+[[ $FORSTERI_STATE_FILE == "$root/.forsteri-install.state" ]] &&
+  ok "target state path" || bad "target state path"
+[[ $(state_get disk) == /dev/vda ]] && ok "target state round-trip" ||
+  bad "target state round-trip"
+state_set phase formatted
+[[ $(state_get_file "$root/.forsteri-install.state" phase) == formatted ]] &&
+  ok "target state updates" || bad "target state updates"
+
+# Simulate the read-only scanner handing back a state file.
+STATE_SCAN_FILE=$tmp/scan.state
+STATE_SCAN_PART=/dev/vda2
+printf 'disk=/dev/vda\nphase=base-installing\nrootpart=/dev/vda2\nfs=ext4\n' \
+  >"$STATE_SCAN_FILE"
+FORSTERI_STATE_FILE=$tmp/imported
+state_import_scan && ok "import scanned state" || bad "import scanned state"
+[[ $(state_phase) == base-installing ]] && ok "imported phase" ||
+  bad "imported phase"
+STATE_SCAN_TMPDIR=$tmp/scan-dir
+mkdir -p "$STATE_SCAN_TMPDIR"
+state_scan_cleanup
+[[ ! -e $STATE_SCAN_TMPDIR && -z $STATE_SCAN_FILE ]] &&
+  ok "scan cleanup" || bad "scan cleanup"
+
 if (( fail == 0 )); then
   echo "state tests passed"
 else

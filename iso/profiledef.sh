@@ -28,5 +28,6 @@ file_permissions=(
   ["/root/.bash_profile"]="0:0:644"
   ["/usr/local/bin/forst"]="0:0:755"
   ["/usr/local/bin/forsteri-install"]="0:0:755"
+  ["/usr/local/bin/forsteri-install-reboot-test"]="0:0:755"
   ["/usr/local/bin/forsteri-nt-selftest"]="0:0:755"
 )

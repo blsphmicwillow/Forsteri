@@ -1,0 +1,14 @@
+[Unit]
+Description=Forsteri installer reboot-state test (opt-in)
+ConditionKernelCommandLine=forsteri.install_reboot_test=1
+After=local-fs.target
+Before=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/forsteri-install-reboot-test
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=multi-user.target
