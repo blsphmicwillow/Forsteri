@@ -189,9 +189,20 @@ fn rpmkeys_has_valid_signature(text: &str) -> bool {
     if lower.contains("nokey") || lower.contains("not ok") || lower.contains("nottrusted") {
         return false;
     }
-    text.lines().any(|line| {
-        let line = line.to_ascii_lowercase();
-        line.contains("signature") && line.contains("ok")
+    text.lines().any(|raw| {
+        let line = raw.trim().to_ascii_lowercase();
+        // The summary form is `digests signatures OK`. Match it at the end so
+        // an unsigned package whose *filename* contains "signature" and "OK"
+        // cannot satisfy the check with its `digests OK` line.
+        if line.ends_with("signatures ok") {
+            return true;
+        }
+        // The verbose form is
+        // `Header V4 RSA/SHA256 Signature, key ID 12345678: OK`.
+        line.contains("signature") &&
+            line.rsplit_once(':')
+                .map(|(_, verdict)| verdict.trim() == "ok")
+                .unwrap_or(false)
     })
 }
 
@@ -447,6 +458,14 @@ mod tests {
         assert!(!rpmkeys_has_valid_signature("package.rpm: digests OK\n"));
         assert!(!rpmkeys_has_valid_signature("package.rpm: digests SIGNATURES NOT OK\n"));
         assert!(!rpmkeys_has_valid_signature("package.rpm: NOKEY\n"));
+        // The package path is attacker-controlled at the metadata layer. It
+        // must not be able to turn `digests OK` into a signature verdict.
+        assert!(!rpmkeys_has_valid_signature(
+            "signature-ok.rpm: digests OK\n"
+        ));
+        assert!(!rpmkeys_has_valid_signature(
+            "dir/signatures-OK/signature.rpm: digests OK\n"
+        ));
 
         assert!(rpmkeys_has_valid_signature(
             "package.rpm: digests signatures OK\n"
