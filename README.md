@@ -28,18 +28,33 @@ suit:
 * **`forst`** -- a ~4k-line Rust binary with no crate dependencies: its own
   SHA-256, tar/ar/cpio readers, three index parsers, a cross-codename resolver
   and a file ledger. It installs Arch `.pkg.tar.zst`, Debian `.deb` and Fedora
-  `.rpm` payloads into one database.
+  `.rpm` payloads into one database. Metadata and packages are signature-checked
+  (gpgv for Debian metadata and Arch packages, rpmkeys for Fedora), installs are
+  staged before an atomic ledger commit, and `forst verify` re-hashes every
+  installed file against the ledger.
 * **A live ISO** (archiso profile) that boots straight into a TUI installer.
 * **An installer** with a desktop selector: GNOME, KDE Plasma, Hyprland, or
   MangoWC with a Quickshell bar -- plus a minimal TTY option.
-* **Four theme codenames**: `ember` (Forsteri's warm default), `drift` (the
-  macOS look: glass, controls left), `monolith` (Nothing OS: black, square,
-  one red accent) and `shelf` (Windows: flat grey, blue, controls right) --
-  chosen at install time and re-applied with `forsteri-theme-apply <codename>`.
+* **Seven theme codenames**: `ember` (Forsteri's warm default), `drift` and
+  `glass` (macOS looks: translucent, controls left), `monolith` and `void`
+  (Nothing OS: black, square, monochrome) and `shelf` and `panes` (Windows:
+  flat panes, blue, controls right) -- chosen at install time and re-applied
+  with `forsteri-theme-apply <codename>`.
+* **FrostKernel** -- the NT-compatibility work inside the Linux kernel, kept in
+  the separate `FosteriOS` tree. The live image loads its `ntpersonality`
+  module; it recognises PE images and parses them, and does not yet execute
+  them.
 * **A quiet boot**: an SDDM login screen with the emblem, and a Plymouth splash
   that fades the mark in over a thin progress line.
 
 ## Status
+
+### Kernel: FrostKernel
+
+FrostKernel is the kernel-side name for the NT personality. M0 (module load,
+`/proc/forsteri_nt`, PE magic at `execve`) and M1 (bounds-checked PE/COFF
+parser with real mingw and malformed fixtures) are complete and tested. It does
+not run PE code yet; M2 is image mapping and the first static hello-world.
 
 Verified in this tree:
 
