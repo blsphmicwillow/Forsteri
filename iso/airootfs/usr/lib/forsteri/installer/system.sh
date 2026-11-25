@@ -36,6 +36,11 @@ install_branding() {
   install -Dm644 "$FORSTERI_SHARE/sessions/mango-forsteri.desktop" \
     "$TARGET/usr/share/wayland-sessions/mango-forsteri.desktop"
 
+  # Signature trust anchors must exist on the installed system too; forst
+  # fails closed on unsigned Debian/Fedora metadata without them.
+  install -d "$TARGET/usr/share/forsteri/keyrings"
+  cp -a "$FORSTERI_SHARE/keyrings/." "$TARGET/usr/share/forsteri/keyrings/"
+
   # Theme codenames and the single helper that renders one into a session.
   cp -r "$FORSTERI_SHARE/themes" "$TARGET/usr/share/forsteri/themes"
   install -Dm755 "$FORSTERI_SHARE/theme/apply.sh" "$TARGET/usr/local/bin/forsteri-theme-apply"

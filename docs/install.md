@@ -50,6 +50,20 @@ install_bootloader  grub-install + grub-mkconfig with the Forsteri theme
 Everything is appended to `/var/log/forsteri-install.log`; `run_logged` keeps
 each command line as well as its output.
 
+### Resume state and dry run
+
+The live medium writes `/var/lib/forsteri/install.state` after each destructive
+phase (`partitioned`, `formatted`, `mounted`, `base-installing`,
+`base-installed`, `configured`, `complete`). If the installer is killed, run
+`forsteri-install` again: it detects the same disk, reuses existing partitions
+and filesystems, skips completed phases, and re-runs only the interrupted one.
+The file is written through a temporary name and `mv`, so a kill cannot leave a
+torn phase line.
+
+`forsteri-install --validate-only` runs the tool checks, package-list lint,
+GPU/NTFS detection and (with `FORSTERI_DISK=/dev/...`) a read-only disk
+inspection. It writes nothing. `--check` remains the narrower data-file lint.
+
 ### Why the installer configures things itself
 
 `forst` never runs upstream scriptlets, by design (see
@@ -57,6 +71,14 @@ each command line as well as its output.
 `.INSTALL` scripts; the installer performs the equivalent steps explicitly in
 `/root/forsteri-setup.sh` inside the target, which is generated from
 `iso/airootfs/usr/lib/forsteri/installer/system.sh` and removed afterwards.
+
+### Hardware discovery
+
+`iso/airootfs/usr/lib/forsteri/installer/hardware.sh` holds the read-only
+probes: `gpu_vendor` (nvidia/amd/intel/unknown), `gpu_packages` (advice only),
+`ntfs_partitions` and `detect_dual_boot`. They are unit-tested with fake
+`lspci`/`lsblk` probes, so a wrong driver is never installed automatically and
+a dual-boot warning does not depend on parsing a TUI.
 
 The account password and root password are passed through
 `/root/forsteri-install.env` (mode 600), sourced by that script, then deleted.

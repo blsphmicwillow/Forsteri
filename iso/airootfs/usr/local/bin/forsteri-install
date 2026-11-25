@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # forsteri-install -- the Forsteri OS installer.
 #
-#   forsteri-install          the usual, interactive flow
-#   forsteri-install --check  lint the installer's data files, touch nothing
+#   forsteri-install                the usual, interactive flow
+#   forsteri-install --check        lint the installer's data files, touch nothing
+#   forsteri-install --validate-only
+#                                   run every probe and print the plan; no writes
 #
 # The installer is a thin front end over forst: it partitions, then asks forst
 # to install package specs into /mnt, then does the first-boot configuration
@@ -31,12 +33,13 @@ FORSTERI_LIB_DIR=$(installer_lib) || {
   exit 1
 }
 # shellcheck source=/dev/null
-for module in common disk system desktop boot; do
+for module in common state hardware disk system desktop boot; do
   . "$FORSTERI_LIB_DIR/$module.sh"
 done
 
 MOUNTED=0
 FINISHED=0
+VALIDATE_ONLY=0
 
 cleanup() {
   if (( MOUNTED == 1 && FINISHED == 0 )); then
@@ -52,6 +55,10 @@ trap cleanup EXIT
 
 check_profiles() {
   local problems=0 file line specs
+  if [[ ! -f $FORSTERI_SHARE/installer/base.list ]]; then
+    echo "missing installer data: $FORSTERI_SHARE/installer/base.list"
+    problems=$((problems + 1))
+  fi
   for file in "$FORSTERI_SHARE"/installer/*.list "$FORSTERI_SHARE"/installer/profiles/*.list; do
     [[ -f $file ]] || continue
     specs=0
@@ -100,7 +107,7 @@ check_profiles() {
 
 check_tools() {
   local tool
-  for tool in forst sgdisk wipefs mkfs.fat mkfs.ext4 genfstab arch-chroot grub-install; do
+  for tool in forst sgdisk wipefs blkid mkfs.fat mkfs.ext4 genfstab arch-chroot grub-install; do
     if command -v "$tool" >/dev/null 2>&1; then
       echo "ok  $tool"
     else
@@ -109,11 +116,57 @@ check_tools() {
   done
 }
 
-if [[ ${1:-} == "--check" ]]; then
-  echo "forsteri-install: self-check"
-  check_tools
-  check_profiles
-  exit $?
+case ${1:-} in
+  --check)
+    echo "forsteri-install: self-check"
+    check_tools
+    check_profiles
+    exit $?
+    ;;
+  --validate-only)
+    VALIDATE_ONLY=1
+    ;;
+  "") ;;
+  *)
+    echo "forsteri-install: unknown option: $1 (try --check or --validate-only)" >&2
+    exit 2
+    ;;
+esac
+
+if (( VALIDATE_ONLY )); then
+  echo "forsteri-install: validation only; no disk writes"
+  check_tools || true
+  check_profiles || exit 1
+  echo
+  hardware_summary
+  echo
+  if [[ -n ${FORSTERI_DISK:-} ]]; then
+    if [[ ! -b $FORSTERI_DISK ]]; then
+      echo "forsteri-install: $FORSTERI_DISK is not a block device" >&2
+      exit 1
+    fi
+    echo "target disk: $FORSTERI_DISK"
+    lsblk -o NAME,SIZE,FSTYPE,MOUNTPOINTS "$FORSTERI_DISK" || true
+    if lsblk -nr -o MOUNTPOINT "$FORSTERI_DISK" 2>/dev/null | grep -qv '^$'; then
+      echo "forsteri-install: warning: $FORSTERI_DISK has mounted partitions" >&2
+    fi
+  else
+    echo "target disk: not selected (set FORSTERI_DISK=/dev/... to inspect one)"
+  fi
+  echo
+  echo "base specs: $(read_spec_list "$FORSTERI_SHARE/installer/base.list" | wc -l)"
+  for profile in "$FORSTERI_SHARE"/installer/profiles/*.list; do
+    [[ -f $profile ]] || continue
+    printf '%-12s %s specs\n' "$(basename "$profile" .list)" \
+      "$(read_spec_list "$profile" | wc -l)"
+  done
+  if [[ -f $FORSTERI_STATE_FILE ]]; then
+    echo
+    echo "resume state: $FORSTERI_STATE_FILE (phase $(state_phase))"
+  fi
+  echo
+  echo "forsteri-install: validation complete; nothing was written"
+  exit 0
 fi
 
 # ---------------------------------------------------------------------------
@@ -146,6 +199,14 @@ if ! run_logged "sync" forst --conf /etc/forst/repos.conf sync; then
 fi
 
 pick_disk || exit 0
+CFG[gpu]=$(gpu_vendor)
+CFG[dual]=$(detect_dual_boot)
+if [[ ${CFG[dual]} == yes ]]; then
+  ui_msg "Existing system detected" "This machine has an NTFS partition or a Windows Boot Manager entry.
+
+Forsteri installs on one disk and erases every partition on it. Back up any
+Windows installation before continuing. The detected disk is ${CFG[disk]}."
+fi
 confirm_wipe || exit 0
 
 answer=$(ui_menu "Filesystem" "Choose the filesystem for the root partition." \
@@ -214,22 +275,85 @@ ui_yesno "Install" "Ready to install.
   locale      ${CFG[locale]}
   desktop     ${CFG[desktop]}
   theme       ${CFG[theme]}
+  gpu         ${CFG[gpu]}
+  dual-boot   ${CFG[dual]}
 
 This erases ${CFG[disk]}." || exit 0
 
-partition_disk
-format_partitions
+# ---------------------------------------------------------------------------
+# resume-aware disk phases
+# ---------------------------------------------------------------------------
+
+resume=0
+if state_same_disk "${CFG[disk]}" && (( $(phase_rank "$(state_phase)") > 0 )); then
+  if (( $(phase_rank "$(state_phase)") >= 7 )); then
+    ui_msg "Already installed" "The state file says this install completed.
+
+Remove $FORSTERI_STATE_FILE to install again."
+    exit 0
+  fi
+  resume=1
+  CFG[rootpart]=$(state_get rootpart)
+  CFG[efipart]=$(state_get efipart)
+  [[ ${CFG[firmware]:-} ]] || CFG[firmware]=$(state_get firmware)
+  log "resuming at phase $(state_phase) on ${CFG[disk]}"
+  ui_msg "Resuming" "Found an interrupted install on ${CFG[disk]}.
+
+Phase: $(state_phase)
+Continuing without wiping the disk again."
+else
+  state_clear
+  state_set disk "${CFG[disk]}"
+  state_set firmware "${CFG[firmware]}"
+fi
+
+if (( resume )) && state_reached partitioned && [[ -b ${CFG[rootpart]:-} ]]; then
+  step "resume: partitions already exist"
+else
+  partition_disk
+  state_set rootpart "${CFG[rootpart]}"
+  state_set efipart "${CFG[efipart]}"
+  state_set phase partitioned
+fi
+
+if (( resume )) && state_reached formatted &&
+  [[ $(fs_type "${CFG[rootpart]}") == "${CFG[fs]}" ]] &&
+  { [[ -z ${CFG[efipart]} ]] || [[ $(fs_type "${CFG[efipart]}") == vfat ]]; }; then
+  step "resume: filesystems already formatted"
+else
+  if (( resume )) && state_reached mounted; then
+    die "the recorded filesystem no longer matches ${CFG[rootpart]}; refusing to reformat a mounted install"
+  fi
+  format_partitions
+  state_set phase formatted
+fi
+
 mount_target
 MOUNTED=1
+state_set phase mounted
 
-install_base || die "base installation failed"
-write_fstab
-copy_target_tools
-install_branding
-chroot_setup
-install_desktop
-configure_desktop
+if (( resume )) && state_reached base-installed; then
+  step "resume: base system already installed"
+else
+  state_set phase base-installing
+  install_base || die "base installation failed"
+  state_set phase base-installed
+fi
+
+if ! state_reached configured; then
+  write_fstab
+  copy_target_tools
+  install_branding
+  chroot_setup
+  install_desktop
+  configure_desktop
+  state_set phase configured
+else
+  step "resume: configuration already applied"
+fi
+
 install_bootloader
+state_set phase complete
 
 FINISHED=1
 unmount_target

@@ -27,6 +27,12 @@ Everything on the selected disk is destroyed." "${items[@]}") || return 1
   log "firmware: ${CFG[firmware]}"
 }
 
+fs_type() {
+  local part=$1
+  [[ -b $part ]] || return 0
+  blkid -s TYPE -o value "$part" 2>/dev/null || true
+}
+
 confirm_wipe() {
   local typed
   typed=$(ui_input "Erase ${CFG[disk]}" \
@@ -86,10 +92,22 @@ format_partitions() {
 
 mount_target() {
   step "mounting"
-  mount "${CFG[rootpart]}" "$TARGET" || die "could not mount ${CFG[rootpart]}"
+  if mountpoint -q "$TARGET"; then
+    local source
+    source=$(findmnt -n -o SOURCE "$TARGET" 2>/dev/null || true)
+    [[ $source == "${CFG[rootpart]}" ]] ||
+      die "$TARGET is already mounted from ${source:-somewhere else}"
+    step "resume: $TARGET is already mounted"
+  else
+    mount "${CFG[rootpart]}" "$TARGET" || die "could not mount ${CFG[rootpart]}"
+  fi
   if [[ -n ${CFG[efipart]} ]]; then
     mkdir -p "$TARGET/efi"
-    mount "${CFG[efipart]}" "$TARGET/efi" || die "could not mount ${CFG[efipart]}"
+    if mountpoint -q "$TARGET/efi"; then
+      step "resume: $TARGET/efi is already mounted"
+    else
+      mount "${CFG[efipart]}" "$TARGET/efi" || die "could not mount ${CFG[efipart]}"
+    fi
   fi
 }
 

@@ -77,10 +77,26 @@ if ./scripts/stage-share.sh "$STAGE/share" >/dev/null 2>&1; then
   else
     bad "forsteri-install --check"
   fi
+  if FORSTERI_SHARE="$STAGE/share" FORSTERI_LOG="$STAGE/install.log" \
+    bash iso/airootfs/usr/local/bin/forsteri-install --validate-only >/dev/null; then
+    ok "forsteri-install --validate-only"
+  else
+    bad "forsteri-install --validate-only"
+  fi
 else
   bad "scripts/stage-share.sh"
 fi
 rm -rf "$STAGE"
+
+note "== installer unit tests"
+for test in installer/tests/*_test.sh; do
+  [[ -f $test ]] || continue
+  if bash "$test"; then
+    ok "$test"
+  else
+    bad "$test"
+  fi
+done
 
 if (( NETWORK )); then
   note "== forst install and ledger (network)"
