@@ -40,7 +40,7 @@ suit:
   (Nothing OS: black, square, monochrome) and `shelf` and `panes` (Windows:
   flat panes, blue, controls right) -- chosen at install time and re-applied
   with `forsteri-theme-apply <codename>`.
-* **FrostKernel** -- the NT-compatibility work inside the Linux kernel, kept in
+* **Frost** -- the NT-compatibility work inside the Linux kernel, kept in
   the separate `FosteriOS` tree. The live image loads its `ntpersonality`
   module; it recognises PE images and parses them, and does not yet execute
   them.
@@ -49,9 +49,9 @@ suit:
 
 ## Status
 
-### Kernel: FrostKernel
+### Kernel: Frost
 
-FrostKernel is the kernel-side name for the NT personality. M0 (module load,
+Frost is the kernel-side name for the NT personality. M0 (module load,
 `/proc/forsteri_nt`, PE magic at `execve`) and M1 (bounds-checked PE/COFF
 parser with real mingw and malformed fixtures) are complete and tested. It does
 not run PE code yet; M2 is image mapping and the first static hello-world.

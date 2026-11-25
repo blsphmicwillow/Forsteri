@@ -12,7 +12,7 @@ Two artefacts can be built: the ISO, and the `nest` package repository.
 | docker | alternative: builds the ISO inside `archlinux:latest` |
 | pacman tools (`makepkg`, `repo-add`) | builds `nest` packages |
 | `linux-headers` matching the live kernel | builds the NT personality module |
-| a FosteriOS checkout | FrostKernel source; defaults to `./FosteriOS`, then `../FosteriOS` |
+| a FosteriOS checkout | Frost source; defaults to `./FosteriOS`, then `../FosteriOS` |
 
 ## The ISO
 
@@ -28,7 +28,7 @@ The script:
 2. `branding/render_assets.py` -- regenerates `branding/dist/*.png`.
 3. `scripts/stage-share.sh` -- copies branding, profiles, skel homes, the SDDM
    theme and the session entry into `iso/airootfs/usr/share/forsteri/`.
-4. `scripts/build-nt-module.sh` -- builds `ntpersonality.ko` from the FrostKernel
+4. `scripts/build-nt-module.sh` -- builds `ntpersonality.ko` from the Frost
    checkout against the live kernel's headers and installs it into
    `iso/airootfs/usr/lib/forsteri/nt/`.
 5. `mkarchiso -v -w /tmp/forsteri-work -o out iso/`.

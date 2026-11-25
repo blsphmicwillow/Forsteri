@@ -1,7 +1,7 @@
 # Architecture
 
 Forsteri is three layers: a boot chain, a package manager, and a desktop. The
-kernel side is **FrostKernel**, the NT personality built inside Linux and kept
+kernel side is **Frost**, the NT personality built inside Linux and kept
 in the `FosteriOS` tree. This document follows a boot from firmware to login
 and explains how the pieces fit.
 
