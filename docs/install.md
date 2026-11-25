@@ -24,18 +24,20 @@ GPT, created with `sgdisk`:
 
 | firmware | partition 1 | partition 2 |
 |----------|-------------|-------------|
-| UEFI | 512 MiB, EF00, `FORSTERI-EFI`, FAT32, mounted at `/efi` | rest, 8304, `FORSTERI-ROOT` |
+| UEFI | 512 MiB, EF00, partition `FORSTERI-EFI`, FAT32 label `FORSTERIEFI`, mounted at `/efi` | rest, 8304, `FORSTERI-ROOT` |
 | BIOS | 2 MiB, EF02, `FORSTERI-BOOT` (no filesystem) | rest, 8304, `FORSTERI-ROOT` |
 
-Root is labelled `Forsteri`; the EFI partition `FORSTERI-EFI`. `genfstab -U`
-writes `/etc/fstab` with UUIDs. There is no swap partition: add a swapfile
-later if you need one.
+Root is labelled `Forsteri`; the EFI *filesystem* is labelled `FORSTERIEFI`
+(11 characters, the FAT32 limit), while the GPT partition keeps the longer
+name `FORSTERI-EFI`. `genfstab -U` writes `/etc/fstab` with UUIDs. There is no
+swap partition: add a swapfile later if you need one.
 
 ## What happens during the install
 
 ```
+resume_scan         mount each disk partition read-only, look for install.state
 partition_disk      wipefs + sgdisk, partprobe, udevadm settle
-format_partitions   mkfs.fat -F32, mkfs.ext4 (or mkfs.btrfs)
+format_partitions   mkfs.fat -F32 -n FORSTERIEFI, mkfs.ext4 (or mkfs.btrfs)
 mount_target        root at /mnt, EFI at /mnt/efi
 install_base        forst --root /mnt --strict install $(installer/base.list)
 write_fstab         genfstab -U /mnt
@@ -52,13 +54,27 @@ each command line as well as its output.
 
 ### Resume state and dry run
 
-The live medium writes `/var/lib/forsteri/install.state` after each destructive
-phase (`partitioned`, `formatted`, `mounted`, `base-installing`,
-`base-installed`, `configured`, `complete`). If the installer is killed, run
-`forsteri-install` again: it detects the same disk, reuses existing partitions
-and filesystems, skips completed phases, and re-runs only the interrupted one.
-The file is written through a temporary name and `mv`, so a kill cannot leave a
-torn phase line.
+The installer keeps `/var/lib/forsteri/install.state` on the live root while it
+runs, but also copies it to the target as soon as the target is mounted:
+`<root>/.forsteri-install.state`, mirrored to
+`<root>/efi/.forsteri-install.state` when an EFI partition exists. The state
+records `disk`, `phase`, `rootpart`, `efipart` and `fs` and is updated after
+each phase (`partitioned`, `formatted`, `mounted`, `base-installing`,
+`base-installed`, `configured`, `complete`).
+
+On startup, before any destructive work, `forsteri-install` mounts each
+partition of the selected disk read-only and scans for that file. If it finds
+one, it shows the recorded disk, partitions and phase and offers to resume. A
+resume reuses the existing partitions and filesystems, skips completed phases,
+and re-runs only the interrupted one. Because the target or EFI copy survives a
+power cycle, this works across a real reboot, not only after a `kill -9`.
+
+The file is written through a temporary name and `mv`, so a crash cannot leave
+a torn phase line. `forsteri-install --resume-probe /dev/vda` performs only the
+read-only scan and prints the discovered state; it is the seam used by CI.
+`scripts/test-installer-reboot.sh` exercises the path with two QEMU boots of the
+same disk, and the ISO's opt-in service removes the live copy before rebooting
+so only the target/EFI copy can satisfy the second boot.
 
 `forsteri-install --validate-only` runs the tool checks, package-list lint,
 GPU/NTFS detection and (with `FORSTERI_DISK=/dev/...`) a read-only disk

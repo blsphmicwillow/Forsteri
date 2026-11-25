@@ -61,9 +61,10 @@ gate.
 
 Verified in this tree:
 
-* `cargo test` -- 37 tests covering SHA-256, archive readers, all three index
+* `cargo test` -- 38 tests covering SHA-256, archive readers, all three index
   parsers, RPM signature parsing, the resolver's cross-codename rules, the
-  foreign-package guard and the ledger.
+  foreign-package guard and the ledger. The `rpmkeys` test also runs against a
+  real unsigned RPM and a tampered copy built by `scripts/test-rpmkeys.sh`.
 * Live repository sync against real mirrors: `colony` 300 packages,
   `ice` 15,303, `tundra` 63,440, `aurora` 68,586 (November 2026 snapshot).
 * Real installs into a scratch root: an Arch `.pkg.tar.zst` with its
@@ -77,20 +78,19 @@ Verified in this tree:
   installed into scratch roots, the installed `.deb` binary executed, and the
   ledger checked across install, re-install and remove.
 * The ISO itself: built with `mkarchiso` (archiso 92), booted in QEMU under
-  BIOS, and checked in GitHub Actions. Run `45549117379` built the ISO in the
+  BIOS, and checked in GitHub Actions. Run `45551778773` built the ISO in the
   pinned container, compiled `ntpersonality.ko` with the M2 `pe_map`/`nt_peb`
-  objects, and the live serial log printed `FORSTERI-NT-TEST: PASS`. The first
-  CI boot caught the live image entering `systemd-firstboot`'s "Initial Setup";
-  the live image now masks it before autologin starts the installer. See
-  `docs/building.md`.
+  objects, printed `FORSTERI-NT-TEST: PASS`, and then completed a second QEMU
+  boot that rediscovered the installer state from the target EFI partition. The
+  first CI boot caught the live image entering `systemd-firstboot`'s "Initial
+  Setup"; the live image now masks it before autologin starts the installer.
+  See `docs/building.md`.
 
 Not yet verified (see `docs/building.md` for the exact gaps):
 
 * The installer end to end on a disk: partitioning, `grub-install` and the
-  first boot of an installed system.
-* Installer resume across a real reboot. `install.state` is on the live root's
-  tmpfs, so a reboot loses it; the same-boot SIGKILL path is tested, but the
-  reboot path is not yet designed or implemented.
+  first boot of an installed system. Reboot resume itself is now covered by a
+  real two-boot QEMU test.
 * A live SDDM greeter and the Quickshell bar. `Main.qml` was rendered
   offscreen with Qt 6/PySide6 against mocked SDDM models (lockup, prefill and
   bottom form), but not inside a desktop session; Quickshell is not installed
