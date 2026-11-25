@@ -1,0 +1,34 @@
+# Base system for every Forsteri install.
+#
+# Specs without a codename use the base order (colony, ice, nest), so these are
+# Arch core/extra packages. `@base` is Arch's base group.
+
+linux
+linux-firmware
+amd-ucode
+intel-ucode
+@base
+
+# Forsteri's own boot experience
+mkinitcpio
+plymouth
+grub
+efibootmgr
+
+# Day-to-day base
+networkmanager
+sudo
+nano
+less
+man-db
+which
+htop
+fastfetch
+curl
+ca-certificates
+zstd
+xz
+gzip
+dosfstools
+e2fsprogs
+btrfs-progs

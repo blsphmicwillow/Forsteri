@@ -1,0 +1,173 @@
+# Forsteri OS splash
+#
+# Quiet by design: the emblem fades in over a dark background, a thin line at
+# the bottom carries a gold comet, and a password prompt appears only when the
+# boot actually needs one (LUKS). No text, no spinner, no noise.
+#
+# Plymouth script language note: module-level variables are reached from
+# functions through their global name, hence the global.* assignments below.
+
+Window.SetBackgroundTopColor(0.043, 0.043, 0.055);
+Window.SetBackgroundBottomColor(0.090, 0.090, 0.115);
+
+screen.width = Window.GetWidth();
+screen.height = Window.GetHeight();
+
+state = {
+    progress: 0,
+    frame: 0,
+    fade: 0,
+    mode: "boot",
+    comet_x: 0,
+    dialog_shown: 0
+};
+
+track = {
+    width: 360,
+    height: 4,
+    x: screen.width / 2 - 180,
+    y: screen.height * 0.62,
+    image: Image("plymouth-track.png")
+};
+track.sprite = Sprite(track.image);
+track.sprite.SetPosition(track.x, track.y, 20);
+track.sprite.SetOpacity(0.18);
+
+comet = {
+    width: 140,
+    height: 4,
+    image: Image("plymouth-comet.png")
+};
+comet.sprite = Sprite(comet.image);
+comet.sprite.SetPosition(track.x, track.y, 21);
+comet.sprite.SetOpacity(0);
+
+logo.image = Image("plymouth-logo.png");
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetPosition(
+    screen.width / 2 - logo.image.GetWidth() / 2,
+    screen.height * 0.40 - logo.image.GetHeight() / 2,
+    30
+);
+logo.sprite.SetOpacity(0);
+
+dialog = {
+    message: 0,
+    count: 0
+};
+
+# --------------------------------------------------------------- refresh tick
+
+fun refresh() {
+    state.frame = state.frame + 1;
+    if (state.frame > 100000) {
+        state.frame = 0;
+    }
+
+    if (state.mode == "password") {
+        return 0;
+    }
+
+    if (state.fade < 1) {
+        state.fade = state.fade + 0.025;
+        if (state.fade > 1) {
+            state.fade = 1;
+        }
+        logo.sprite.SetOpacity(state.fade);
+        track.sprite.SetOpacity(0.18 * state.fade);
+    }
+
+    if (state.progress > 0) {
+        # determinate: the comet settles where boot progress is
+        comet.sprite.SetOpacity(0.9);
+        comet.sprite.SetX(track.x + (track.width - comet.width) * state.progress);
+    } else {
+        # indeterminate: a slow sweep back and forth
+        state.comet_x = state.comet_x + 3;
+        if (state.comet_x > (track.width - comet.width)) {
+            state.comet_x = 0;
+        }
+        comet.sprite.SetOpacity(0.7);
+        comet.sprite.SetX(track.x + state.comet_x);
+    }
+
+    return 1;
+}
+
+Plymouth.SetRefreshFunction(refresh);
+
+# --------------------------------------------------------------- boot progress
+
+fun on_progress(progress) {
+    global.state.progress = progress;
+}
+
+Plymouth.SetBootProgressFunction(on_progress);
+
+# --------------------------------------------------------------- password dialog
+
+fun hide_dialog() {
+    if (dialog.message) {
+        dialog.message.SetOpacity(0);
+    }
+    for (index = 0; dialog.bullet[index]; index++) {
+        dialog.bullet[index].sprite.SetOpacity(0);
+    }
+    state.mode = "boot";
+}
+
+fun show_dialog(prompt, bullets) {
+    state.mode = "password";
+    logo.sprite.SetOpacity(0.35);
+    comet.sprite.SetOpacity(0);
+    track.sprite.SetOpacity(0.08);
+
+    if (!dialog.message) {
+        dialog.message = Sprite(Image.Text(prompt, 0.85, 0.83, 0.78, 1));
+        dialog.message.SetPosition(
+            screen.width / 2 - dialog.message.GetImage().GetWidth() / 2,
+            screen.height * 0.58,
+            40
+        );
+    }
+    dialog.message.SetImage(Image.Text(prompt, 0.85, 0.83, 0.78, 1));
+    dialog.message.SetPosition(
+        screen.width / 2 - dialog.message.GetImage().GetWidth() / 2,
+        screen.height * 0.58,
+        40
+    );
+    dialog.message.SetOpacity(1);
+
+    if (!dialog.bullet_image) {
+        dialog.bullet_image = Image("plymouth-bullet.png");
+    }
+    for (index = 0; index < bullets; index++) {
+        if (!dialog.bullet[index]) {
+            dialog.bullet[index].sprite = Sprite(dialog.bullet_image);
+            dialog.bullet[index].sprite.SetPosition(
+                screen.width / 2 - (bullets * 18) / 2 + index * 18,
+                screen.height * 0.63,
+                41
+            );
+        }
+        dialog.bullet[index].sprite.SetOpacity(1);
+    }
+    return 1;
+}
+
+Plymouth.SetDisplayPasswordFunction(show_dialog);
+Plymouth.SetDisplayQuestionFunction(show_dialog);
+Plymouth.SetDisplayNormalFunction(hide_dialog);
+
+fun on_message(text) {
+    return 1;
+}
+
+Plymouth.SetMessageFunction(on_message);
+
+fun on_quit() {
+    comet.sprite.SetOpacity(0);
+    track.sprite.SetOpacity(0);
+}
+
+Plymouth.SetQuitFunction(on_quit);

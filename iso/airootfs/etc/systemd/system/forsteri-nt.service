@@ -1,0 +1,14 @@
+[Unit]
+Description=Forsteri NT personality (ntpersonality)
+Documentation=https://github.com/blsphmicwillow/FosteriOS
+After=local-fs.target
+Before=multi-user.target
+ConditionPathExists=/usr/lib/forsteri/nt/ntpersonality.ko
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/insmod /usr/lib/forsteri/nt/ntpersonality.ko
+
+[Install]
+WantedBy=multi-user.target

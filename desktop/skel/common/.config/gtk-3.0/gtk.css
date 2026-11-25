@@ -1,0 +1,46 @@
+/* Forsteri OS -- GTK3
+ *
+ * Kept intentionally small: GTK3 apps get the palette and the window shape;
+ * everything else comes from their own theme.
+ */
+
+@define-color theme_bg_color #17171e;
+@define-color theme_fg_color #f7f1e1;
+@define-color theme_base_color #12121a;
+@define-color theme_text_color #f7f1e1;
+@define-color theme_selected_bg_color #f2c14e;
+@define-color theme_selected_fg_color #14140f;
+@define-color insensitive_bg_color #1b1b23;
+@define-color insensitive_fg_color #6d6d7a;
+@define-color borders #33333f;
+@define-color accent_color #f2c14e;
+
+window {
+  border-radius: 10px;
+}
+
+headerbar,
+.titlebar {
+  min-height: 36px;
+  border-radius: 10px 10px 0 0;
+}
+
+button {
+  border-radius: 7px;
+  padding: 4px 11px;
+}
+
+entry {
+  border-radius: 7px;
+  padding: 4px 8px;
+}
+
+menu,
+popover {
+  border-radius: 10px;
+}
+
+scrollbar slider {
+  border-radius: 999px;
+  background-color: alpha(#f7f1e1, 0.25);
+}

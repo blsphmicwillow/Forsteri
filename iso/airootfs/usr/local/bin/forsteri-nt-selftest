@@ -1,0 +1,47 @@
+#!/bin/bash
+# Serial self-test for the NT personality. Runs only when the kernel command
+# line contains forsteri.nt_test=1 (enforced by the unit's condition).
+# The image still loads the module on a normal boot; this unit just proves it.
+set -u
+
+TTY=/dev/ttyS0
+rc=0
+
+say() {
+	printf 'FORSTERI-NT-TEST: %s\n' "$*" >&2
+	if [ -w "$TTY" ]; then
+		printf 'FORSTERI-NT-TEST: %s\n' "$*" >"$TTY"
+	fi
+}
+
+say "begin ($(uname -r))"
+
+if [ ! -d /sys/module/ntpersonality ]; then
+	say "FAIL module not loaded"
+	rc=1
+else
+	say "module loaded"
+fi
+
+if [ ! -r /proc/forsteri_nt ]; then
+	say "FAIL /proc/forsteri_nt missing"
+	rc=1
+else
+	cat /proc/forsteri_nt >"$TTY" 2>/dev/null || true
+	cat /proc/forsteri_nt >&2 || true
+	if grep -q '^binfmt     registered$' /proc/forsteri_nt; then
+		say "binfmt registered"
+	else
+		say "FAIL binfmt not registered"
+		rc=1
+	fi
+fi
+
+if [ "$rc" -eq 0 ]; then
+	say "PASS"
+else
+	say "FAIL"
+fi
+
+systemctl poweroff --no-block
+exit "$rc"

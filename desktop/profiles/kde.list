@@ -1,0 +1,14 @@
+# KDE Plasma 6. With the Forsteri colour scheme and a top panel this is the
+# closest thing to a Mac desktop you can get from stock KDE.
+ice:@plasma
+ice:sddm
+ice:plasma-nm
+ice:dolphin
+ice:kate
+ice:ark
+ice:pipewire
+ice:pipewire-pulse
+ice:wireplumber
+ice:noto-fonts
+ice:noto-fonts-emoji
+ice:ttf-jetbrains-mono

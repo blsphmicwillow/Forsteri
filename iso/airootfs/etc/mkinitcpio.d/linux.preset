@@ -1,0 +1,7 @@
+# Overrides the preset the `linux` package generates, so the live initramfs is
+# built from Forsteri's config. mkinitcpio's post-install hook only writes this
+# file when it is missing, so this copy wins.
+ALL_kver="/boot/vmlinuz-linux"
+default_config="/etc/forsteri/mkinitcpio.conf"
+default_image="/boot/initramfs-linux.img"
+PRESETS=('default')

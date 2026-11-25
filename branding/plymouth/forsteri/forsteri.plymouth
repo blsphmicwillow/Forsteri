@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Forsteri
+Description=Forsteri OS -- emblem, thin progress line, password prompt
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/forsteri
+ScriptFile=/usr/share/plymouth/themes/forsteri/forsteri.script

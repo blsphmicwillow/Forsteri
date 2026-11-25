@@ -1,0 +1,4 @@
+# Minimal: a TTY, a shell, and forst.
+# The base system already provides everything; this only adds comfort tools.
+ice:htop
+ice:fastfetch

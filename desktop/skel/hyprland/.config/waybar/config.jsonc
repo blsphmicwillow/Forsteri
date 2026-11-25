@@ -1,0 +1,52 @@
+// Forsteri OS -- Waybar
+{
+  "layer": "top",
+  "position": "top",
+  "height": 34,
+  "spacing": 8,
+  "margin-top": 8,
+  "margin-left": 12,
+  "margin-right": 12,
+  "modules-left": ["custom/emblem", "hyprland/workspaces"],
+  "modules-center": ["clock"],
+  "modules-right": ["tray", "pulseaudio", "backlight", "battery", "custom/power"],
+
+  "custom/emblem": {
+    "format": "❄ forsteri",
+    "tooltip": false,
+    "on-click": "wofi --show drun"
+  },
+  "hyprland/workspaces": {
+    "format": "{icon}",
+    "on-click": "activate",
+    "format-icons": {
+      "1": "1", "2": "2", "3": "3", "4": "4", "5": "5", "6": "6"
+    }
+  },
+  "clock": {
+    "format": "{:%a %d %b  %H:%M}",
+    "tooltip-format": "<tt>{calendar}</tt>"
+  },
+  "tray": { "icon-size": 16, "spacing": 8 },
+  "pulseaudio": {
+    "format": "{icon} {volume}%",
+    "format-muted": "muted",
+    "format-icons": ["▁", "▃", "▅", "▇", "█"],
+    "on-click": "pavucontrol"
+  },
+  "backlight": {
+    "format": "☀ {percent}%",
+    "device": "acpi_video1"
+  },
+  "battery": {
+    "states": { "warning": 20, "critical": 10 },
+    "format": "{capacity}% {icon}",
+    "format-charging": "{capacity}% ⚡",
+    "format-icons": ["▁", "▂", "▃", "▄", "▅", "▆", "▇", "█"]
+  },
+  "custom/power": {
+    "format": "⏻",
+    "tooltip": false,
+    "on-click": "systemctl poweroff"
+  }
+}

@@ -1,0 +1,44 @@
+# Packages installed into the live environment.
+#
+# Keep this list small: everything else is pulled by forst from the codenames
+# at install time, which is the point of the distribution.
+#
+# `forst` itself is not here: scripts/build-iso.sh builds it from pkg/forst and
+# drops the binary into airootfs/usr/local/bin/forst.
+
+# base system
+base
+linux
+linux-firmware
+amd-ucode
+intel-ucode
+mkinitcpio
+systemd
+util-linux
+kmod
+e2fsprogs
+dosfstools
+gptfdisk
+squashfs-tools
+zstd
+xz
+gzip
+bzip2
+curl
+
+# live-media tooling
+grub
+syslinux
+efibootmgr
+arch-install-scripts
+dialog
+nano
+less
+hwdetect
+pciutils
+usbutils
+which
+
+# boot experience
+plymouth
+mkinitcpio-archiso

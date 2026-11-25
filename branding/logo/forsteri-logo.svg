@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Forsteri OS">
+  <title>Forsteri OS</title>
+  <desc>An emperor penguin reduced to a cream body sweep, a dark head, a golden ear patch and a coral beak.</desc>
+  <defs>
+    <clipPath id="disc">
+      <circle cx="256" cy="256" r="252"/>
+    </clipPath>
+  </defs>
+  <circle cx="256" cy="256" r="252" fill="#0e0e12"/>
+  <circle cx="256" cy="256" r="250" fill="none" stroke="#2a2a34" stroke-width="2"/>
+  <g clip-path="url(#disc)">
+    <!-- body -->
+    <path fill="#f7f1e1" d="M 218 100
+      C 312 77 386 141 389 215
+      C 392 279 335 315 289 359
+      C 240 405 225 458 233 484
+      C 202 445 172 381 166 318
+      C 161 254 182 173 218 100 Z"/>
+    <!-- golden ear patch -->
+    <ellipse cx="209" cy="127" rx="37" ry="30" fill="#f2c14e"/>
+    <!-- head -->
+    <path fill="#0a0a0c" d="M 225 92
+      C 184 105 154 128 123 150
+      C 161 169 207 170 240 156
+      C 256 133 246 105 225 92 Z"/>
+    <!-- beak -->
+    <path fill="#e79a86" d="M 128 148
+      C 87 153 50 164 27 180
+      C 68 188 109 180 141 169
+      C 128 148 128 148 128 148 Z"/>
+  </g>
+</svg>

@@ -1,0 +1,13 @@
+[Unit]
+Description=Forsteri NT serial self-test (opt-in)
+After=forsteri-nt.service
+Requires=forsteri-nt.service
+ConditionKernelCommandLine=forsteri.nt_test=1
+ConditionPathExists=/dev/ttyS0
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/forsteri-nt-selftest
+
+[Install]
+WantedBy=multi-user.target

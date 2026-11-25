@@ -1,0 +1,10 @@
+# GNOME, themed toward a macOS feel (top bar, dock, warm accent).
+ice:@gnome
+ice:gnome-tweaks
+ice:sddm
+ice:pipewire
+ice:pipewire-pulse
+ice:wireplumber
+ice:noto-fonts
+ice:noto-fonts-emoji
+ice:ttf-jetbrains-mono

@@ -1,0 +1,73 @@
+/* Forsteri OS -- GTK4
+ *
+ * The look: warm ivory text on near-black, gold accents, 12px window corners
+ * and compact controls -- the parts of a Mac that are actually CSS.
+ */
+
+@define-color accent_color #f2c14e;
+@define-color accent_bg_color #f2c14e;
+@define-color accent_fg_color #14140f;
+@define-color window_bg_color #17171e;
+@define-color window_fg_color #f7f1e1;
+@define-color view_bg_color #12121a;
+@define-color view_fg_color #f7f1e1;
+@define-color headerbar_bg_color #101016;
+@define-color headerbar_fg_color #f7f1e1;
+@define-color card_bg_color #1f1f28;
+@define-color card_fg_color #f7f1e1;
+@define-color popover_bg_color #1b1b23;
+@define-color popover_fg_color #f7f1e1;
+@define-color borders #33333f;
+@define-color theme_bg_color #17171e;
+@define-color theme_fg_color #f7f1e1;
+@define-color theme_selected_bg_color #f2c14e;
+@define-color theme_selected_fg_color #14140f;
+
+window,
+window.background {
+  border-radius: 12px;
+}
+
+headerbar {
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 12px 12px 0 0;
+  box-shadow: none;
+}
+
+button {
+  border-radius: 7px;
+  padding: 4px 12px;
+  box-shadow: none;
+}
+
+button.suggested-action {
+  background: @accent_bg_color;
+  color: @accent_fg_color;
+}
+
+entry,
+spinbutton,
+dropdown > button {
+  border-radius: 7px;
+  padding: 5px 9px;
+  box-shadow: none;
+}
+
+popover,
+popover.background,
+menu {
+  border-radius: 12px;
+  border: 1px solid alpha(@borders, 0.8);
+}
+
+notebook > header tab {
+  border-radius: 8px 8px 0 0;
+}
+
+scrollbar slider {
+  min-width: 8px;
+  min-height: 8px;
+  border-radius: 999px;
+  background: alpha(#f7f1e1, 0.25);
+}

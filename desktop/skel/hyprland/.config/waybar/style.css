@@ -1,0 +1,69 @@
+/* Forsteri OS -- Waybar */
+
+* {
+  font-family: "JetBrains Mono", "Noto Sans", monospace;
+  font-size: 12px;
+  border: none;
+  border-radius: 0;
+}
+
+window#waybar {
+  background: rgba(14, 14, 18, 0.82);
+  color: #f7f1e1;
+  border: 1px solid rgba(242, 193, 78, 0.22);
+  border-radius: 14px;
+}
+
+.modules-left,
+.modules-center,
+.modules-right {
+  padding: 0 10px;
+}
+
+#custom-emblem {
+  color: #f2c14e;
+  padding-right: 14px;
+  font-weight: 600;
+}
+
+#workspaces button {
+  color: #9fb6c8;
+  padding: 0 7px;
+  border-radius: 8px;
+}
+
+#workspaces button.active {
+  color: #14140f;
+  background: #f2c14e;
+}
+
+#workspaces button:hover {
+  background: rgba(242, 193, 78, 0.25);
+  color: #f7f1e1;
+}
+
+#clock {
+  color: #f7f1e1;
+}
+
+#pulseaudio,
+#backlight,
+#battery,
+#tray,
+#custom-power {
+  padding-left: 12px;
+  color: #d7d2c4;
+}
+
+#battery.warning {
+  color: #e79a86;
+}
+
+#battery.critical {
+  color: #e06c5a;
+}
+
+#custom-power {
+  color: #e79a86;
+  padding-right: 4px;
+}

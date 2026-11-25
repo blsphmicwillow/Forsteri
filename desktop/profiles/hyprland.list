@@ -1,0 +1,20 @@
+# Hyprland: tiling, animated, keyboard driven, with Waybar.
+ice:hyprland
+ice:xdg-desktop-portal-hyprland
+ice:kitty
+ice:waybar
+ice:wofi
+ice:swaybg
+ice:grim
+ice:slurp
+ice:wl-clipboard
+ice:brightnessctl
+ice:polkit-gnome
+ice:network-manager-applet
+ice:sddm
+ice:pipewire
+ice:pipewire-pulse
+ice:wireplumber
+ice:noto-fonts
+ice:noto-fonts-emoji
+ice:ttf-jetbrains-mono

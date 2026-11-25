@@ -1,0 +1,247 @@
+#!/usr/bin/env bash
+# forsteri-install -- the Forsteri OS installer.
+#
+#   forsteri-install          the usual, interactive flow
+#   forsteri-install --check  lint the installer's data files, touch nothing
+#
+# The installer is a thin front end over forst: it partitions, then asks forst
+# to install package specs into /mnt, then does the first-boot configuration
+# that Arch packages normally do in their install scriptlets (locale, users,
+# initramfs, presets). See docs/install.md.
+
+set -uo pipefail
+
+installer_lib() {
+  local path here
+  here=$(dirname "$(readlink -f "$0")")
+  for path in \
+    /usr/lib/forsteri/installer \
+    "$here/../../lib/forsteri/installer" \
+    "$here/../lib/forsteri/installer"; do
+    [[ -d $path ]] && {
+      printf '%s\n' "$path"
+      return 0
+    }
+  done
+  return 1
+}
+
+FORSTERI_LIB_DIR=$(installer_lib) || {
+  echo "forsteri-install: cannot find the installer library" >&2
+  exit 1
+}
+# shellcheck source=/dev/null
+for module in common disk system desktop boot; do
+  . "$FORSTERI_LIB_DIR/$module.sh"
+done
+
+MOUNTED=0
+FINISHED=0
+
+cleanup() {
+  if (( MOUNTED == 1 && FINISHED == 0 )); then
+    log "cleanup: unmounting $TARGET"
+    unmount_target
+  fi
+}
+trap cleanup EXIT
+
+# ---------------------------------------------------------------------------
+# check mode
+# ---------------------------------------------------------------------------
+
+check_profiles() {
+  local problems=0 file line specs
+  for file in "$FORSTERI_SHARE"/installer/*.list "$FORSTERI_SHARE"/installer/profiles/*.list; do
+    [[ -f $file ]] || continue
+    specs=0
+    while IFS= read -r line; do
+      [[ -z $line ]] && continue
+      specs=$((specs + 1))
+      if [[ ! $line =~ ^(@|[a-z0-9]|nest:|ice:|colony:|tundra:|aurora:)[a-zA-Z0-9@:._+-]*$ ]]; then
+        echo "bad spec in ${file#"$FORSTERI_SHARE"/}: $line"
+        problems=$((problems + 1))
+      fi
+    done < <(read_spec_list "$file")
+    if (( specs == 0 )); then
+      echo "empty package list: ${file#"$FORSTERI_SHARE"/}"
+      problems=$((problems + 1))
+    else
+      echo "ok  ${file#"$FORSTERI_SHARE"/} ($specs specs)"
+    fi
+  done
+
+  local dir codename conf
+  for dir in "$FORSTERI_SHARE"/themes/*/; do
+    [[ -d $dir ]] || continue
+    codename=$(basename "$dir")
+    conf="$dir/theme.conf"
+    if [[ ! -f $conf ]]; then
+      echo "theme $codename has no theme.conf"
+      problems=$((problems + 1))
+      continue
+    fi
+    if ! grep -qx "CODENAME=$codename" "$conf"; then
+      echo "theme $codename: CODENAME does not match its directory"
+      problems=$((problems + 1))
+    fi
+    for key in NAME ACCENT BG FG BASE CARD BORDER RADIUS BUTTON_RADIUS FONT \
+      MONO BUTTONS GNOME_ACCENT BLUR; do
+      grep -q "^$key=" "$conf" || {
+        echo "theme $codename: missing $key"
+        problems=$((problems + 1))
+      }
+    done
+    echo "ok  theme $codename"
+  done
+
+  return $(( problems > 0 ))
+}
+
+check_tools() {
+  local tool
+  for tool in forst sgdisk wipefs mkfs.fat mkfs.ext4 genfstab arch-chroot grub-install; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      echo "ok  $tool"
+    else
+      echo "--  $tool (not present here; required on the live medium)"
+    fi
+  done
+}
+
+if [[ ${1:-} == "--check" ]]; then
+  echo "forsteri-install: self-check"
+  check_tools
+  check_profiles
+  exit $?
+fi
+
+# ---------------------------------------------------------------------------
+# interactive flow
+# ---------------------------------------------------------------------------
+
+require_root
+mkdir -p "$(dirname "$FORSTERI_LOG")"
+: >>"$FORSTERI_LOG"
+log "installer started"
+
+if ! command -v forst >/dev/null 2>&1; then
+  die "forst is missing from this live medium"
+fi
+
+ui_msg "Welcome" "Forsteri OS ${FORSTERI_VERSION}
+
+This installs Forsteri on one disk. Everything on that disk is erased.
+
+  packages   forst, from codenames colony, ice, nest, tundra, aurora
+  desktop    GNOME, KDE Plasma, Hyprland, MangoWC or a plain TTY
+  boot       GRUB with the Forsteri splash
+
+The next screen refreshes the repository indexes, which needs a network."
+
+ui_info "Refreshing codenames" "Downloading repository indexes (colony, ice, nest, tundra, aurora)."
+if ! run_logged "sync" forst --conf /etc/forst/repos.conf sync; then
+  tail -n 20 "$FORSTERI_LOG" 2>/dev/null
+  die "no repository index could be fetched. Connect a network and try again."
+fi
+
+pick_disk || exit 0
+confirm_wipe || exit 0
+
+answer=$(ui_menu "Filesystem" "Choose the filesystem for the root partition." \
+  ext4 "ext4 -- the safe default" \
+  btrfs "btrfs -- snapshots, no subvolumes") || exit 0
+CFG[fs]=$answer
+
+while :; do
+  answer=$(ui_input "Hostname" "Name this machine." "${CFG[hostname]}") || exit 0
+  valid_hostname "$answer" && {
+    CFG[hostname]=$answer
+    break
+  }
+  ui_msg "Hostname" "Use letters, digits and dashes (1-63 characters)."
+done
+
+while :; do
+  answer=$(ui_input "User" "Create your account. It can use sudo." "${CFG[user]}") || exit 0
+  valid_username "$answer" && {
+    CFG[user]=$answer
+    break
+  }
+  ui_msg "User" "Lowercase letters, digits, dash and underscore; must not start with a digit."
+done
+
+USER_PASSWORD=$(ask_password_pair "Password for ${CFG[user]}") || exit 0
+ROOT_PASSWORD=$(ask_password_pair "Root password") || exit 0
+
+answer=$(ui_input "Timezone" "A zoneinfo name, for example Europe/Paris or America/New_York." "${CFG[timezone]}") || exit 0
+while ! valid_timezone "$answer"; do
+  answer=$(ui_input "Timezone" "No such zone: $answer
+Try again (for example UTC)." "UTC") || exit 0
+done
+CFG[timezone]=$answer
+
+answer=$(ui_menu "Locale" "System language and encoding." \
+  en_US.UTF-8 "English (United States)" \
+  en_GB.UTF-8 "English (United Kingdom)" \
+  de_DE.UTF-8 "Deutsch" \
+  fr_FR.UTF-8 "Francais" \
+  es_ES.UTF-8 "Espanol" \
+  it_IT.UTF-8 "Italiano" \
+  pt_BR.UTF-8 "Portugues (Brasil)" \
+  pl_PL.UTF-8 "Polski" \
+  ja_JP.UTF-8 "Japanese" \
+  ko_KR.UTF-8 "Korean" \
+  zh_CN.UTF-8 "Chinese (Simplified)") || exit 0
+CFG[locale]=$answer
+
+answer=$(ui_menu "Keyboard" "Console keymap." \
+  us "US" uk "UK" de "German" fr "French" es "Spanish" it "Italian" \
+  br-abnt2 "Brazilian" dvorak "Dvorak") || exit 0
+CFG[keymap]=$answer
+
+pick_desktop || exit 0
+pick_theme || exit 0
+
+ui_yesno "Install" "Ready to install.
+
+  disk        ${CFG[disk]}
+  filesystem  ${CFG[fs]} on ${CFG[rootpart]}
+  firmware    ${CFG[firmware]}
+  hostname    ${CFG[hostname]}
+  user        ${CFG[user]}
+  timezone    ${CFG[timezone]}
+  locale      ${CFG[locale]}
+  desktop     ${CFG[desktop]}
+  theme       ${CFG[theme]}
+
+This erases ${CFG[disk]}." || exit 0
+
+partition_disk
+format_partitions
+mount_target
+MOUNTED=1
+
+install_base || die "base installation failed"
+write_fstab
+copy_target_tools
+install_branding
+chroot_setup
+install_desktop
+configure_desktop
+install_bootloader
+
+FINISHED=1
+unmount_target
+MOUNTED=0
+
+ui_msg "Done" "Forsteri OS is installed.
+
+  user     ${CFG[user]} (sudo)
+  desktop  ${CFG[desktop]}
+  theme    ${CFG[theme]}
+  boot     ${CFG[firmware]} / GRUB
+
+Remove the installation medium and press OK to reboot."
+log "installer finished"
+reboot

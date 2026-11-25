@@ -1,0 +1,50 @@
+# Forsteri boot menu.
+#
+# Flat and quiet: the emblem above, one highlighted line, no boxes.
+# GRUB renders this at whatever resolution the firmware picked; the background
+# is 1920x1080 and is stretched by GRUB.
+
+title-text: ""
+desktop-image: "background.png"
+desktop-color: "#0e0e12"
+terminal-font: "Unifont Regular 16"
+terminal-box: "terminal_box_*.png"
+terminal-left: "0"
+terminal-top: "0"
+terminal-width: "100%"
+terminal-height: "100%"
+
++ boot_menu {
+    left = 20%
+    top = 44%
+    width = 60%
+    height = 40%
+    item_font = "Unifont Regular 16"
+    item_color = "#d7d2c4"
+    selected_item_color = "#0e0e12"
+    item_height = 34
+    item_padding = 6
+    item_spacing = 4
+    selected_item_pixmap_style = ""
+    scrollbar = false
+}
+
++ label {
+    top = 88%
+    left = 0
+    width = 100%
+    align = "center"
+    color = "#9fb6c8"
+    font = "Unifont Regular 16"
+    text = "Forsteri OS 0.1 (Ember)"
+}
+
++ label {
+    top = 92%
+    left = 0
+    width = 100%
+    align = "center"
+    color = "#5d5d6a"
+    font = "Unifont Regular 16"
+    text = "UEFI and BIOS  |  forst: colony, ice, nest, tundra, aurora"
+}

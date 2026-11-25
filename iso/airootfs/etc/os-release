@@ -1,0 +1,11 @@
+NAME="Forsteri OS"
+PRETTY_NAME="Forsteri OS 0.1 (Ember)"
+ID=forsteri
+ID_LIKE=arch
+BUILD_ID=rolling
+ANSI_COLOR="38;2;242;193;78"
+HOME_URL="https://forsteri.example"
+DOCUMENTATION_URL="https://forsteri.example/docs"
+SUPPORT_URL="https://forsteri.example/support"
+BUG_REPORT_URL="https://forsteri.example/issues"
+LOGO=forsteri-logo

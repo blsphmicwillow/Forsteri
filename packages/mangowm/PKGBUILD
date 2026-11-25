@@ -1,0 +1,50 @@
+# Maintainer: Forsteri OS
+#
+# MangoWC (upstream: mangowm, formerly mangowc) is a dwl-derived Wayland
+# compositor with tags, animations and window rules. It is not in Arch's
+# repositories, so Forsteri builds it into the `nest` codename.
+#
+# IMPORTANT: mango tracks specific wlroots/scenefx versions. The dependencies
+# below are the AUR names for that pair; build them into `nest` first (or
+# replace them with matching -git builds), otherwise mango will not start.
+#   wlroots0.20  (AUR)
+#   scenefx0.5   (AUR)
+
+pkgname=mangowm
+pkgver=r0
+pkgrel=1
+pkgdesc="MangoWC: a dwl-derived Wayland compositor with tags, animations and rules"
+arch=('x86_64')
+url="https://github.com/DreamMaoMao/mangowc"
+license=('GPL-3.0-or-later' 'MIT')
+depends=('glibc' 'wayland' 'wayland-protocols' 'libinput' 'libdrm' 'libxkbcommon'
+         'pixman' 'libdisplay-info' 'libliftoff' 'hwdata' 'seatd' 'pcre2' 'pango'
+         'cjson' 'xorg-xwayland' 'libxcb' 'wlroots0.20' 'scenefx0.5')
+makedepends=('git' 'meson' 'ninja')
+provides=('mangowc' 'mango')
+conflicts=('mangowc' 'mangowc-git' 'mangowm-git')
+source=("git+https://github.com/DreamMaoMao/mangowc.git")
+sha256sums=('SKIP')
+
+pkgver() {
+  cd mangowc
+  printf 'r%s.%s' "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+build() {
+  cd mangowc
+  meson setup build --prefix=/usr --buildtype=release
+  ninja -C build
+}
+
+package() {
+  cd mangowc
+  DESTDIR="$pkgdir" ninja -C build install
+
+  # Upstream's default config, used when the user has no ~/.config/mango.
+  install -Dm644 config.conf "$pkgdir/etc/mango/config.conf"
+
+  # The upstream session entry; Forsteri also ships mango-forsteri.desktop,
+  # which starts the Quickshell bar alongside the compositor.
+  install -Dm644 mango.desktop "$pkgdir/usr/share/wayland-sessions/mango.desktop"
+}

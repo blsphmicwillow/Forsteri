@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Forsteri theme
+Comment=Apply the Forsteri desktop defaults (buttons left, gold accent, fonts)
+Exec=/usr/local/bin/forsteri-theme-apply
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+OnlyShowIn=GNOME;KDE;Hyprland;mango;sway;

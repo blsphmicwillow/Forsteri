@@ -1,0 +1,31 @@
+# Maintainer: Forsteri OS
+#
+# forst is the only package that a Forsteri system strictly needs from `nest`:
+# the installer copies the binary into the target, and this PKGBUILD lets later
+# updates arrive through `forst install nest:forst`.
+#
+# scripts/make-repo.sh creates forst-0.1.0.tar.gz from pkg/forst and drops
+# repos.conf next to this file before calling makepkg.
+
+pkgname=forst
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Forsteri OS package manager: one binary, five codenames"
+arch=('x86_64')
+url="https://forsteri.example"
+license=('MIT')
+depends=('glibc' 'curl' 'zstd' 'xz' 'gzip' 'bzip2')
+makedepends=('cargo')
+source=("forst-$pkgver.tar.gz" "repos.conf")
+sha256sums=('SKIP' 'SKIP')
+
+build() {
+  cd "forst-$pkgver"
+  cargo build --release --offline
+}
+
+package() {
+  cd "forst-$pkgver"
+  install -Dm755 target/release/forst "$pkgdir/usr/bin/forst"
+  install -Dm644 "$srcdir/repos.conf" "$pkgdir/etc/forst/repos.conf"
+}

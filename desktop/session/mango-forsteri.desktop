@@ -1,0 +1,7 @@
+[Desktop Entry]
+Name=MangoWC (Forsteri)
+Comment=dwl-derived compositor with the Forsteri Quickshell bar
+Exec=sh -c 'quickshell >/dev/null 2>&1 & exec mango'
+Type=Application
+DesktopNames=mango
+Keywords=wm;tiling;wayland;

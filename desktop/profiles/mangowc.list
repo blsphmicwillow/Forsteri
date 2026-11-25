@@ -1,0 +1,17 @@
+# MangoWC (a dwl-derived Wayland compositor with tag rules) plus Forsteri's
+# Quickshell bar. Upstream calls the project mangowm; it is not packaged by
+# Arch, so it comes from Forsteri's own `nest` codename (packages/mangowm).
+nest:mangowm
+ice:quickshell
+ice:kitty
+ice:grim
+ice:slurp
+ice:wl-clipboard
+ice:brightnessctl
+ice:sddm
+ice:pipewire
+ice:pipewire-pulse
+ice:wireplumber
+ice:noto-fonts
+ice:noto-fonts-emoji
+ice:ttf-jetbrains-mono
