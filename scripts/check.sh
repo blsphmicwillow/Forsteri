@@ -110,6 +110,18 @@ else
   note "--   skipped; run scripts/check.sh --network to install real packages"
 fi
 
+note "== forst SIGKILL recovery"
+if command -v gpg >/dev/null 2>&1 && command -v gpgv >/dev/null 2>&1; then
+  if ./scripts/fault-test-forst.sh >/tmp/forst-fault.log 2>&1; then
+    ok "scripts/fault-test-forst.sh"
+  else
+    tail -30 /tmp/forst-fault.log >&2 || true
+    bad "scripts/fault-test-forst.sh"
+  fi
+else
+  note "--   skipped; gpg and gpgv are needed for the local signed package"
+fi
+
 note "== assets"
 for asset in logo-512.png logo-1024.png brand-lockup-light.png plymouth-logo.png \
   plymouth-track.png plymouth-comet.png plymouth-bullet.png grub-background.png \

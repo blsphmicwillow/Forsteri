@@ -317,6 +317,7 @@ fn hash_entries(stage: &Path, files: &mut [FsEntry]) -> Result<()> {
 /// first; each file or link is replaced with a rename, which is atomic on the
 /// same filesystem (the staging tree always lives under the target root).
 fn commit_stage(stage: &Path, root: &Path, files: &[FsEntry]) -> Result<()> {
+    let mut moved = 0usize;
     for entry in files.iter().filter(|e| e.kind == FsKind::Dir) {
         let Some(rel) = util::safe_rel(&entry.path) else {
             continue;
@@ -348,9 +349,31 @@ fn commit_stage(stage: &Path, root: &Path, files: &[FsEntry]) -> Result<()> {
         }
         fs::rename(&src, &dest)
             .map_err(|e| Error::new(format!("cannot commit {}: {e}", dest.display())))?;
+        moved += 1;
+        if moved == 1 {
+            fault_pause("mid-commit");
+        }
     }
     Ok(())
 }
+
+/// Test-only pause points for the SIGKILL fault tests. The calls are compiled
+/// out of release builds, so a shipped forst cannot be stopped by an
+/// environment variable.
+#[cfg(debug_assertions)]
+fn fault_pause(point: &str) {
+    if std::env::var("FORST_FAULT_PAUSE").ok().as_deref() != Some(point) {
+        return;
+    }
+    eprintln!("forst: fault-test pause at {point} (pid {})", std::process::id());
+    loop {
+        std::thread::sleep(std::time::Duration::from_secs(60));
+    }
+}
+
+#[cfg(not(debug_assertions))]
+fn fault_pause(_point: &str) {}
+
 
 pub fn install_package(
     repo: &Repo,
@@ -379,7 +402,9 @@ pub fn install_package(
         }
         // Verify the staged tree before anything reaches the live root.
         hash_entries(&stage, &mut files)?;
+        fault_pause("staged");
         commit_stage(&stage, root, &files)?;
+        fault_pause("committed");
         Ok(files)
     })();
 
