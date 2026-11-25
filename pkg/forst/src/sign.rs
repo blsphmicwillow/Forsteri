@@ -390,6 +390,56 @@ mod tests {
         assert!(err.to_string().contains("keyring"));
     }
 
+    /// Run the real rpmkeys binary when CI supplies an unsigned RPM. This is
+    /// deliberately separate from the string fixtures: it catches a different
+    /// rpmkeys version, locale, or exit-status assumption.
+    #[test]
+    fn real_rpmkeys_rejects_unsigned_and_tampered() {
+        let Ok(fixture) = std::env::var("FORST_RPMKEYS_FIXTURE") else {
+            return;
+        };
+        let unsigned = Command::new("rpmkeys")
+            .args(["--checksig", &fixture])
+            .output()
+            .expect("FORST_RPMKEYS_FIXTURE is set but rpmkeys is unavailable");
+        let unsigned_text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&unsigned.stdout),
+            String::from_utf8_lossy(&unsigned.stderr)
+        );
+        eprintln!("rpmkeys unsigned: {unsigned_text}");
+        assert!(
+            !rpmkeys_has_valid_signature(&unsigned_text),
+            "unsigned RPM must not have a positive signature verdict"
+        );
+
+        let bytes = fs::read(&fixture).expect("read RPM fixture");
+        assert!(bytes.len() > 16, "RPM fixture is too small");
+        let mut tampered = bytes;
+        let last = tampered.len() - 1;
+        tampered[last] ^= 0xff;
+        let path = std::env::temp_dir().join(format!(
+            "forst-rpmkeys-tampered-{}.rpm",
+            std::process::id()
+        ));
+        fs::write(&path, &tampered).expect("write tampered RPM");
+        let changed = Command::new("rpmkeys")
+            .args(["--checksig", path.to_string_lossy().as_ref()])
+            .output()
+            .expect("rpmkeys is unavailable");
+        let changed_text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&changed.stdout),
+            String::from_utf8_lossy(&changed.stderr)
+        );
+        eprintln!("rpmkeys tampered: {changed_text}");
+        assert!(
+            !rpmkeys_has_valid_signature(&changed_text),
+            "tampered RPM must not have a positive signature verdict"
+        );
+        fs::remove_file(path).ok();
+    }
+
     #[test]
     fn rpmkeys_requires_a_real_signature_line() {
         // This is the dangerous case: rpmkeys says the payload digests are
