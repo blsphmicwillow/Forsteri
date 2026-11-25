@@ -150,6 +150,11 @@ if (( VALIDATE_ONLY )); then
     if lsblk -nr -o MOUNTPOINT "$FORSTERI_DISK" 2>/dev/null | grep -qv '^$'; then
       echo "forsteri-install: warning: $FORSTERI_DISK has mounted partitions" >&2
     fi
+    if is_uefi; then
+      echo "plan: GPT, 512 MiB EFI (FAT32) + remaining root (${CFG[fs]}), firmware uefi"
+    else
+      echo "plan: GPT, 2 MiB BIOS boot + remaining root (${CFG[fs]}), firmware bios"
+    fi
   else
     echo "target disk: not selected (set FORSTERI_DISK=/dev/... to inspect one)"
   fi
@@ -160,6 +165,19 @@ if (( VALIDATE_ONLY )); then
     printf '%-12s %s specs\n' "$(basename "$profile" .list)" \
       "$(read_spec_list "$profile" | wc -l)"
   done
+  if command -v forst >/dev/null 2>&1 && compgen -G '/var/cache/forst/index/*.idx' >/dev/null; then
+    echo
+    mapfile -t base_specs < <(read_spec_list "$FORSTERI_SHARE/installer/base.list")
+    if forst --root "$TARGET" --conf /etc/forst/repos.conf --dry-run install "${base_specs[@]}" >/dev/null 2>&1; then
+      echo "package plan: base system resolves"
+    else
+      echo "forsteri-install: the base package plan does not resolve" >&2
+      exit 1
+    fi
+  else
+    echo
+    echo "package plan: skipped (no forst indexes yet; run forst sync first)"
+  fi
   if [[ -f $FORSTERI_STATE_FILE ]]; then
     echo
     echo "resume state: $FORSTERI_STATE_FILE (phase $(state_phase))"
