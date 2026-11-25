@@ -43,7 +43,11 @@ trap 'rm -rf "$STAGE"' EXIT
 cp "$FOSTERIOS_DIR/kernel/nt/Makefile" \
    "$FOSTERIOS_DIR/kernel/nt/ntpersonality_main.c" \
    "$FOSTERIOS_DIR/kernel/nt/pe.c" \
-   "$FOSTERIOS_DIR/kernel/nt/pe.h" "$STAGE/"
+   "$FOSTERIOS_DIR/kernel/nt/pe.h" \
+   "$FOSTERIOS_DIR/kernel/nt/pe_map.c" \
+   "$FOSTERIOS_DIR/kernel/nt/pe_map.h" \
+   "$FOSTERIOS_DIR/kernel/nt/nt_peb.c" \
+   "$FOSTERIOS_DIR/kernel/nt/nt_peb.h" "$STAGE/"
 
 make -C "$KDIR" M="$STAGE" modules
 install -Dm644 "$STAGE/ntpersonality.ko" "$DEST/ntpersonality.ko"

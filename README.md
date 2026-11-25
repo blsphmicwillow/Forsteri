@@ -53,14 +53,17 @@ suit:
 
 Frost is the kernel-side name for the NT personality. M0 (module load,
 `/proc/forsteri_nt`, PE magic at `execve`) and M1 (bounds-checked PE/COFF
-parser with real mingw and malformed fixtures) are complete and tested. It does
-not run PE code yet; M2 is image mapping and the first static hello-world.
+parser with real mingw and malformed fixtures) are complete and tested. M2
+groundwork is in place: a host-tested page plan with W^X and overlap rejection,
+base relocations, and the x64 PEB/TEB layout. It does not run PE code yet; the
+module still returns `ENOEXEC` and the first static hello-world is the open M2
+gate.
 
 Verified in this tree:
 
-* `cargo test` -- 24 tests covering SHA-256, archive readers, all three index
-  parsers, the resolver's cross-codename rules, the foreign-package guard and
-  the ledger.
+* `cargo test` -- 37 tests covering SHA-256, archive readers, all three index
+  parsers, RPM signature parsing, the resolver's cross-codename rules, the
+  foreign-package guard and the ledger.
 * Live repository sync against real mirrors: `colony` 300 packages,
   `ice` 15,303, `tundra` 63,440, `aurora` 68,586 (November 2026 snapshot).
 * Real installs into a scratch root: an Arch `.pkg.tar.zst` with its
@@ -73,16 +76,24 @@ Verified in this tree:
 * `scripts/check.sh --network`: a real Arch package and a real Debian package
   installed into scratch roots, the installed `.deb` binary executed, and the
   ledger checked across install, re-install and remove.
-* The ISO itself: built with `mkarchiso` (archiso 92) and booted in QEMU under
-  BIOS, reaching userspace with the live root mounted. See the build notes in
-  `docs/building.md`.
+* The ISO itself: built with `mkarchiso` (archiso 92), booted in QEMU under
+  BIOS, and checked in GitHub Actions. Run `45548425028` built the ISO in the
+  pinned container and the live serial log printed `FORSTERI-NT-TEST: PASS`.
+  The first CI boot caught the live image entering `systemd-firstboot`'s
+  "Initial Setup"; the live image now masks it before autologin starts the
+  installer. See `docs/building.md`.
 
 Not yet verified (see `docs/building.md` for the exact gaps):
 
 * The installer end to end on a disk: partitioning, `grub-install` and the
   first boot of an installed system.
-* The QML in the SDDM theme and the Quickshell bar -- they compile only on a
-  machine with Qt, which this tree was not built on.
+* Installer resume across a real reboot. `install.state` is on the live root's
+  tmpfs, so a reboot loses it; the same-boot SIGKILL path is tested, but the
+  reboot path is not yet designed or implemented.
+* A live SDDM greeter and the Quickshell bar. `Main.qml` was rendered
+  offscreen with Qt 6/PySide6 against mocked SDDM models (lockup, prefill and
+  bottom form), but not inside a desktop session; Quickshell is not installed
+  here.
 * MangoWC: `nest` needs `mangowm` built with matching `wlroots0.20`/`scenefx0.5`.
 
 ## Try the package manager
