@@ -10,8 +10,11 @@ install_base() {
     "Resolving and installing ${#specs[@]} package specs into $TARGET.
 
 forst is doing the work; this takes a few minutes."
+  # The live root is a small overlay; a base system does not fit in its
+  # cache. Keep downloaded packages on the target, which has the real disk.
   run_logged "base install" \
-    forst --root "$TARGET" --conf /etc/forst/repos.conf --strict --yes install "${specs[@]}" ||
+    forst --root "$TARGET" --cache "$TARGET/var/cache/forst" \
+      --conf /etc/forst/repos.conf --strict --yes install "${specs[@]}" ||
     die "the base system could not be installed (see $FORSTERI_LOG)"
 }
 

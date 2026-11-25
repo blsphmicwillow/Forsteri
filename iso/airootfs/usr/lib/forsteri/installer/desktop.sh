@@ -48,7 +48,8 @@ install_desktop() {
 
 The download can be large; the log is at $FORSTERI_LOG."
   run_logged "desktop ${CFG[desktop]}" \
-    forst --root "$TARGET" --conf /etc/forst/repos.conf --yes install "${specs[@]}" ||
+    forst --root "$TARGET" --cache "$TARGET/var/cache/forst" \
+      --conf /etc/forst/repos.conf --yes install "${specs[@]}" ||
     die "the ${CFG[desktop]} desktop could not be installed (see $FORSTERI_LOG)"
 }
 
