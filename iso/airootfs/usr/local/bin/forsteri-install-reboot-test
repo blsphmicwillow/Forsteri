@@ -82,7 +82,7 @@ done
 
 out=$(mkfs.ext4 -F -L Forsteri "$ROOT_PART" 2>&1) ||
   fail "could not format $ROOT_PART: $out"
-out=$(mkfs.fat -F 32 -n FORSTERI-EFI "$EFI_PART" 2>&1) ||
+out=$(mkfs.fat -F 32 -n FORSTERIEFI "$EFI_PART" 2>&1) ||
   fail "could not format $EFI_PART: $out"
 mount "$ROOT_PART" "$TARGET" || fail "could not mount $ROOT_PART"
 mkdir -p "$TARGET/efi"

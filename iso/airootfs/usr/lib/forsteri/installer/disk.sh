@@ -71,7 +71,7 @@ partition_disk() {
 format_partitions() {
   step "formatting"
   if [[ -n ${CFG[efipart]} ]]; then
-    run_logged "mkfs.fat" mkfs.fat -F 32 -n FORSTERI-EFI "${CFG[efipart]}" ||
+    run_logged "mkfs.fat" mkfs.fat -F 32 -n FORSTERIEFI "${CFG[efipart]}" ||
       die "could not format ${CFG[efipart]}"
   fi
 
