@@ -108,7 +108,7 @@ qemu_run() {
     -display none -no-reboot -vga qxl \
     -drive if=pflash,format=raw,readonly=on,file="$ovmf_code" \
     -drive if=pflash,format=raw,file="$WORK/OVMF_VARS.fd" \
-    "$@" -serial "file:$log"
+    "$@" -serial "file:$log" 2>>"$log"
   QEMU_STATUS=$?
   set -e
 }
@@ -125,11 +125,11 @@ qemu_run "$live_log" "$TIMEOUT" \
   -device virtio-blk-pci,drive=isodisk \
   -nic user,model=virtio-net-pci
 
-if grep -q 'FORSTERI-INSTALL: UNATTENDED FAIL' "$live_log"; then
+if [[ -f $live_log ]] && grep -q 'FORSTERI-INSTALL: UNATTENDED FAIL' "$live_log"; then
   grep -E 'FORSTERI-INSTALL|fatal:|ERROR|error:' "$live_log" | tail -40 || true
   fail "the installer reported a failure (see $live_log)"
 fi
-if ! grep -q 'FORSTERI-INSTALL: UNATTENDED COMPLETE' "$live_log"; then
+if ! grep -q 'FORSTERI-INSTALL: UNATTENDED COMPLETE' "$live_log" 2>/dev/null; then
   echo "--- last 60 lines of $live_log ---" >&2
   tail -60 "$live_log" >&2 || true
   fail "the live boot did not finish the unattended install (QEMU status $QEMU_STATUS)"

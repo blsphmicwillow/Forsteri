@@ -50,7 +50,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            qemu-system-x86 qemu-utils xorriso util-linux ovmf
+            qemu-system-x86 qemu-system-modules-spice qemu-utils xorriso util-linux ovmf
       - name: Build the ISO (pinned archiso container)
         working-directory: distro
         env:
