@@ -690,13 +690,17 @@ mod tests {
         let valid_deb = "Package: acl\nVersion: 1\nArchitecture: amd64\nFilename: pool/a.deb\nSHA256: aa\n\n";
         let valid_rpm = "<package><name>acl</name><arch>x86_64</arch><version epoch=\"0\" ver=\"1\" rel=\"1\"/><location href=\"a.rpm\"/></package>";
 
+        let iterations = std::env::var("FORST_FUZZ_ITERS")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(96);
         let mut seed: u64 = 0x5eed_c0de_f00d_beef;
         let mut next = || {
             seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
             seed
         };
 
-        for i in 0..96usize {
+        for i in 0..iterations {
             let len = (next() as usize % 1024) + i % 7;
             let noise: Vec<u8> = (0..len).map(|_| next() as u8).collect();
             let cut = next() as usize % (valid_tar.len() + 1);
