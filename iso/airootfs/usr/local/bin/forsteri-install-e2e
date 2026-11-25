@@ -59,7 +59,7 @@ done
 (( network == 1 )) || fail "the live medium has no working network/DNS"
 marker "network is up"
 
-password_key="password_for_$(printf '%s' "$USER_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '_' | sed 's/^_//; s/_$//')"
+password_key="password.password_for_$(printf '%s' "$USER_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '_' | sed 's/^_//; s/_$//')"
 umask 077
 : >"$ANSWERS"
 cat >"$ANSWERS" <<EOF

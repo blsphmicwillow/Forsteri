@@ -264,7 +264,7 @@ if ! run_logged "sync" forst --conf /etc/forst/repos.conf sync; then
   die "no repository index could be fetched. Connect a network and try again."
 fi
 
-pick_disk || exit 0
+pick_disk || cancel
 
 # Look for state written to the target by a previous boot before asking to
 # erase anything. This is deliberately before confirm_wipe.
@@ -305,16 +305,16 @@ Forsteri installs on one disk and erases every partition on it. Back up any
 Windows installation before continuing. The detected disk is ${CFG[disk]}."
 fi
 if (( RESUME_FOUND == 0 )); then
-  confirm_wipe || exit 0
+  confirm_wipe || cancel
 
   answer=$(ui_menu "Filesystem" "Choose the filesystem for the root partition." \
     ext4 "ext4 -- the safe default" \
-    btrfs "btrfs -- snapshots, no subvolumes") || exit 0
+    btrfs "btrfs -- snapshots, no subvolumes") || cancel
   CFG[fs]=$answer
 fi
 
 while :; do
-  answer=$(ui_input "Hostname" "Name this machine." "${CFG[hostname]}") || exit 0
+  answer=$(ui_input "Hostname" "Name this machine." "${CFG[hostname]}") || cancel
   valid_hostname "$answer" && {
     CFG[hostname]=$answer
     break
@@ -323,7 +323,7 @@ while :; do
 done
 
 while :; do
-  answer=$(ui_input "User" "Create your account. It can use sudo." "${CFG[user]}") || exit 0
+  answer=$(ui_input "User" "Create your account. It can use sudo." "${CFG[user]}") || cancel
   valid_username "$answer" && {
     CFG[user]=$answer
     break
@@ -331,13 +331,13 @@ while :; do
   ui_msg "User" "Lowercase letters, digits, dash and underscore; must not start with a digit."
 done
 
-USER_PASSWORD=$(ask_password_pair "Password for ${CFG[user]}") || exit 0
-ROOT_PASSWORD=$(ask_password_pair "Root password") || exit 0
+USER_PASSWORD=$(ask_password_pair "Password for ${CFG[user]}") || cancel
+ROOT_PASSWORD=$(ask_password_pair "Root password") || cancel
 
-answer=$(ui_input "Timezone" "A zoneinfo name, for example Europe/Paris or America/New_York." "${CFG[timezone]}") || exit 0
+answer=$(ui_input "Timezone" "A zoneinfo name, for example Europe/Paris or America/New_York." "${CFG[timezone]}") || cancel
 while ! valid_timezone "$answer"; do
   answer=$(ui_input "Timezone" "No such zone: $answer
-Try again (for example UTC)." "UTC") || exit 0
+Try again (for example UTC)." "UTC") || cancel
 done
 CFG[timezone]=$answer
 
@@ -352,16 +352,16 @@ answer=$(ui_menu "Locale" "System language and encoding." \
   pl_PL.UTF-8 "Polski" \
   ja_JP.UTF-8 "Japanese" \
   ko_KR.UTF-8 "Korean" \
-  zh_CN.UTF-8 "Chinese (Simplified)") || exit 0
+  zh_CN.UTF-8 "Chinese (Simplified)") || cancel
 CFG[locale]=$answer
 
 answer=$(ui_menu "Keyboard" "Console keymap." \
   us "US" uk "UK" de "German" fr "French" es "Spanish" it "Italian" \
-  br-abnt2 "Brazilian" dvorak "Dvorak") || exit 0
+  br-abnt2 "Brazilian" dvorak "Dvorak") || cancel
 CFG[keymap]=$answer
 
-pick_desktop || exit 0
-pick_theme || exit 0
+pick_desktop || cancel
+pick_theme || cancel
 
 ui_yesno "Install" "Ready to install.
 
@@ -377,7 +377,7 @@ ui_yesno "Install" "Ready to install.
   gpu         ${CFG[gpu]}
   dual-boot   ${CFG[dual]}
 
-This erases ${CFG[disk]} unless resuming." || exit 0
+This erases ${CFG[disk]} unless resuming." || cancel
 
 # ---------------------------------------------------------------------------
 # resume-aware disk phases

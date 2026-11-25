@@ -179,6 +179,16 @@ ui_menu() {
   "$DIALOG" --backtitle "$BACKTITLE" --title "$title" --menu "$text" 0 0 12 "$@" 3>&1 1>&2 2>&3
 }
 
+# An interactive prompt declined or answered with nothing. A person may walk
+# away from the TUI, but an unattended run must fail loudly instead of
+# pretending it installed anything.
+cancel() {
+  if unattended; then
+    die "unattended run cannot continue: an answer was missing or declined"
+  fi
+  exit 0
+}
+
 die() {
   local message=$1
   log "fatal: $message"
