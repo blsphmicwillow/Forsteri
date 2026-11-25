@@ -30,47 +30,163 @@ USER_PASSWORD=""
 DIALOG="${DIALOG:-dialog}"
 readonly BACKTITLE="Forsteri OS ${FORSTERI_VERSION}"
 
+# Set by `forsteri-install --unattended FILE`. When it is non-empty the ui_*
+# functions read answers from that file instead of drawing dialog boxes; every
+# other line of the install flow is the same code. `FORSTERI_UNATTENDED_CONSOLE=1`
+# also copies log lines to stderr so a serial console sees them.
+FORSTERI_ANSWERS=${FORSTERI_ANSWERS:-}
+FORSTERI_UNATTENDED_CONSOLE=${FORSTERI_UNATTENDED_CONSOLE:-0}
+
 # ---------------------------------------------------------------------------
 # logging and UI
 # ---------------------------------------------------------------------------
 
 log() {
-  printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >>"$FORSTERI_LOG" 2>/dev/null || true
+  local line
+  line="$(date -u +%FT%TZ) $*"
+  printf '%s\n' "$line" >>"$FORSTERI_LOG" 2>/dev/null || true
+  if [[ $FORSTERI_UNATTENDED_CONSOLE == 1 ]]; then
+    printf '%s\n' "$line" >&2
+  fi
 }
 
 step() {
   log "== $*"
 }
 
+# ---------------------------------------------------------------------------
+# unattended answers
+# ---------------------------------------------------------------------------
+
+unattended() {
+  [[ -n $FORSTERI_ANSWERS ]]
+}
+
+# A prompt title becomes a stable key: lower case, runs of non-alphanumerics
+# folded to one underscore. "Password for forsteri" -> password_for_forsteri.
+answer_slug() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '_' |
+    sed 's/^_//; s/_$//'
+}
+
+answer_raw() {
+  local key=$1
+  [[ -r $FORSTERI_ANSWERS ]] || return 1
+  awk -F= -v k="$key" '
+    /^[[:space:]]*#/ { next }
+    $1 == k { value = substr($0, index($0, "=") + 1) }
+    END { if (value != "") print value }
+  ' "$FORSTERI_ANSWERS"
+}
+
+# ui_answer <kind> <title>. Exact key first, then the first word so a title that
+# carries a disk path ("Erase /dev/vda") can still use a fixed answer.
+ui_answer() {
+  local kind=$1 title=$2 slug head value
+  slug=$(answer_slug "$title")
+  value=$(answer_raw "$kind.$slug" || true)
+  if [[ -z $value ]]; then
+    head=${slug%%_*}
+    [[ $head != "$slug" ]] && value=$(answer_raw "$kind.$head" || true)
+  fi
+  if [[ -z $value ]]; then
+    log "unattended: no answer for $kind \"$title\" (tried $kind.$slug)"
+    return 1
+  fi
+  printf '%s\n' "$value"
+}
+
 ui_msg() {
+  if unattended; then
+    log "unattended: message \"$1\""
+    [[ $FORSTERI_UNATTENDED_CONSOLE == 1 ]] && printf '\n[%s]\n%s\n' "$1" "$2" >&2
+    return 0
+  fi
   "$DIALOG" --backtitle "$BACKTITLE" --title "$1" --msgbox "$2" 0 0
 }
 
 ui_info() {
+  if unattended; then
+    log "unattended: info \"$1\""
+    [[ $FORSTERI_UNATTENDED_CONSOLE == 1 ]] && printf '[%s] %s\n' "$1" "$2" >&2
+    return 0
+  fi
   "$DIALOG" --backtitle "$BACKTITLE" --title "$1" --infobox "$2" 0 0
 }
 
 ui_yesno() {
+  local answer
+  if unattended; then
+    answer=$(ui_answer yesno "$1") || return 1
+    log "unattended: yes/no \"$1\" = $answer"
+    case ${answer,,} in
+      yes | y | true | 1) return 0 ;;
+      no | n | false | 0) return 1 ;;
+      *)
+        log "unattended: \"$answer\" is not yes or no for \"$1\""
+        return 1
+        ;;
+    esac
+  fi
   "$DIALOG" --backtitle "$BACKTITLE" --title "$1" --yesno "$2" 0 0
 }
 
 ui_input() {
-  "$DIALOG" --backtitle "$BACKTITLE" --title "$1" --inputbox "$2" 0 0 "$3" 3>&1 1>&2 2>&3
+  local default=${3:-} answer
+  if unattended; then
+    answer=$(ui_answer input "$1" || true)
+    [[ -n $answer ]] || answer=$default
+    if [[ -z $answer ]]; then
+      log "unattended: \"$1\" has no answer and no default"
+      return 1
+    fi
+    log "unattended: input \"$1\" = $answer"
+    printf '%s\n' "$answer"
+    return 0
+  fi
+  "$DIALOG" --backtitle "$BACKTITLE" --title "$1" --inputbox "$2" 0 0 "$default" 3>&1 1>&2 2>&3
 }
 
 ui_password() {
+  local answer
+  if unattended; then
+    answer=$(ui_answer password "$1") || return 1
+    log "unattended: password \"$1\" supplied"
+    printf '%s\n' "$answer"
+    return 0
+  fi
   "$DIALOG" --backtitle "$BACKTITLE" --title "$1" --insecure --passwordbox "$2" 0 0 3>&1 1>&2 2>&3
 }
 
 ui_menu() {
-  local title=$1 text=$2
+  local title=$1 text=$2 answer tag found=0
   shift 2
+  if unattended; then
+    answer=$(ui_answer menu "$title") || return 1
+    while (( $# )); do
+      tag=$1
+      shift 2
+      [[ $tag == "$answer" ]] && found=1
+    done
+    if (( found == 0 )); then
+      log "unattended: \"$answer\" is not a choice for \"$title\""
+      return 1
+    fi
+    log "unattended: menu \"$title\" = $answer"
+    printf '%s\n' "$answer"
+    return 0
+  fi
   "$DIALOG" --backtitle "$BACKTITLE" --title "$title" --menu "$text" 0 0 12 "$@" 3>&1 1>&2 2>&3
 }
 
 die() {
   local message=$1
   log "fatal: $message"
+  if unattended; then
+    printf '\nFORSTERI-INSTALL: UNATTENDED FAIL: %s\n' "$message" >&2
+    [[ -f $FORSTERI_LOG ]] && tail -n 80 "$FORSTERI_LOG" >&2 || true
+    exit 1
+  fi
   ui_msg "Something went wrong" "$message
 
 Details: $FORSTERI_LOG"

@@ -26,9 +26,9 @@ jobs:
         run: ./scripts/test-rpmkeys.sh
 
   iso:
-    name: ISO build and QEMU boot test
+    name: ISO build, QEMU boot and end-to-end install
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - name: Check out the distribution
         uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            qemu-system-x86 qemu-utils xorriso util-linux
+            qemu-system-x86 qemu-utils xorriso util-linux ovmf
       - name: Build the ISO (pinned archiso container)
         working-directory: distro
         env:
@@ -69,7 +69,13 @@ jobs:
         env:
           TIMEOUT: "300"
         run: ./scripts/test-installer-reboot.sh
-      - name: Upload the ISO and serial log
+      - name: Install Forsteri end to end and boot the installed disk
+        working-directory: distro
+        env:
+          E2E_TIMEOUT: "3600"
+          E2E_BOOT_TIMEOUT: "600"
+        run: ./scripts/test-install-e2e.sh
+      - name: Upload the ISO and serial logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -78,5 +84,6 @@ jobs:
             distro/out/*.iso
             distro/build/iso-test/serial.log
             distro/build/installer-reboot-test/*.log
+            distro/build/installer-e2e/*.log
           if-no-files-found: warn
           retention-days: 7

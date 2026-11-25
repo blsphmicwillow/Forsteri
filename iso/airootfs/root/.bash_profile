@@ -6,6 +6,7 @@
 
 if [[ $(tty) == /dev/tty1 && -z ${FORSTERI_NO_INSTALL:-} &&
   ! "$(cat /proc/cmdline 2>/dev/null)" =~ (^| )forsteri\.install_reboot_test=1( |$) &&
+  ! "$(cat /proc/cmdline 2>/dev/null)" =~ (^| )forsteri\.install_e2e=1( |$) &&
   -x /usr/local/bin/forsteri-install ]]; then
   /usr/local/bin/forsteri-install
   clear

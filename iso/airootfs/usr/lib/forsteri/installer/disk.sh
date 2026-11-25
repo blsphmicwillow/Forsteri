@@ -63,7 +63,24 @@ partition_disk() {
     die "could not create the root partition"
   CFG[rootpart]=$(part_path "$disk" 2)
 
-  run_logged "partprobe" partprobe "$disk"
+  # partx is in util-linux; partprobe comes from parted, which the live
+  # medium does not carry. Either way the device nodes can lag behind sgdisk,
+  # so wait for both partitions instead of handing mkfs a missing path.
+  run_logged "partx" partx -u "$disk" || true
+  local waited
+  for waited in $(seq 1 50); do
+    if [[ -b ${CFG[rootpart]} ]] &&
+      { [[ -z ${CFG[efipart]} ]] || [[ -b ${CFG[efipart]} ]]; }; then
+      break
+    fi
+    udevadm settle --timeout=1 >/dev/null 2>&1 || true
+    sleep 0.2
+  done
+  [[ -b ${CFG[rootpart]} ]] ||
+    die "root partition ${CFG[rootpart]} did not appear after partitioning"
+  if [[ -n ${CFG[efipart]} && ! -b ${CFG[efipart]} ]]; then
+    die "EFI partition ${CFG[efipart]} did not appear after partitioning"
+  fi
   udevadm settle --timeout=10 || true
   log "root partition: ${CFG[rootpart]}, efi: ${CFG[efipart]:-none}"
 }

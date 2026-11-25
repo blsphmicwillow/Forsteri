@@ -1,0 +1,18 @@
+[Unit]
+Description=Forsteri installer end-to-end run (opt-in)
+ConditionKernelCommandLine=forsteri.install_e2e=1
+After=local-fs.target
+Before=multi-user.target
+# The installer syncs repositories before it writes anything.
+Wants=network.target
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/forsteri-install-e2e
+StandardOutput=journal+console
+StandardError=journal+console
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target

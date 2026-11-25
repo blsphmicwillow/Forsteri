@@ -2,6 +2,9 @@
 # forsteri-install -- the Forsteri OS installer.
 #
 #   forsteri-install                the usual, interactive flow
+#   forsteri-install --unattended FILE
+#                                   run the same flow, taking every answer from
+#                                   FILE; finish with a poweroff
 #   forsteri-install --check        lint the installer's data files, touch nothing
 #   forsteri-install --validate-only
 #                                   run every probe and print the plan; no writes
@@ -42,6 +45,7 @@ done
 MOUNTED=0
 FINISHED=0
 VALIDATE_ONLY=0
+UNATTENDED=0
 
 cleanup() {
   if (( MOUNTED == 1 && FINISHED == 0 )); then
@@ -119,6 +123,23 @@ check_tools() {
 }
 
 case ${1:-} in
+  --unattended)
+    [[ $# -ge 2 && -n ${2:-} ]] || {
+      echo "usage: forsteri-install --unattended ANSWER_FILE" >&2
+      exit 2
+    }
+    [[ -r $2 ]] || {
+      echo "forsteri-install: cannot read answer file: $2" >&2
+      exit 2
+    }
+    FORSTERI_ANSWERS=$(readlink -f "$2")
+    UNATTENDED=1
+    shift 2
+    [[ $# -eq 0 ]] || {
+      echo "forsteri-install: unexpected argument after --unattended: $1" >&2
+      exit 2
+    }
+    ;;
   --resume-probe)
     probe_disk=${2:-}
     [[ -n $probe_disk ]] || {
@@ -438,6 +459,15 @@ state_set phase complete
 FINISHED=1
 unmount_target
 MOUNTED=0
+
+if (( UNATTENDED )); then
+  log "unattended install finished: user=${CFG[user]} desktop=${CFG[desktop]} theme=${CFG[theme]} boot=${CFG[firmware]}"
+  printf 'FORSTERI-INSTALL: UNATTENDED COMPLETE user=%s desktop=%s firmware=%s\n' \
+    "${CFG[user]}" "${CFG[desktop]}" "${CFG[firmware]}" >&2
+  sync
+  systemctl poweroff
+  exit 0
+fi
 
 ui_msg "Done" "Forsteri OS is installed.
 

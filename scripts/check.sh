@@ -4,6 +4,8 @@
 #   scripts/check.sh              the offline checks
 #   scripts/check.sh --network    also install real packages into temp roots
 #                                 and verify the ledger (scripts/check-forst.sh)
+#   scripts/check.sh --e2e        also run the two-boot QEMU installer test
+#                                 (needs an ISO, QEMU and OVMF)
 #
 # 1. shell syntax for every script in the tree
 # 2. Python syntax for the asset renderer
@@ -14,15 +16,17 @@
 set -uo pipefail
 
 NETWORK=0
+E2E=0
 for arg in "$@"; do
   case $arg in
     --network) NETWORK=1 ;;
+    --e2e) E2E=1 ;;
     -h | --help)
-      sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+      sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
       exit 0
       ;;
     *)
-      echo "check.sh: unknown argument: $arg (try --network)" >&2
+      echo "check.sh: unknown argument: $arg (try --network or --e2e)" >&2
       exit 2
       ;;
   esac
@@ -146,6 +150,18 @@ if [[ -s desktop/skel/common/.config/fastfetch/config.jsonc && \
   ok "desktop/skel/common/.config/fastfetch"
 else
   bad "fastfetch config or colored ASCII logo is missing"
+fi
+
+if (( E2E )); then
+  note "== installer end to end (QEMU)"
+  if ./scripts/test-install-e2e.sh; then
+    ok "scripts/test-install-e2e.sh"
+  else
+    bad "scripts/test-install-e2e.sh"
+  fi
+else
+  note "== installer end to end"
+  note "--   skipped; run scripts/check.sh --e2e (needs an ISO, QEMU and OVMF)"
 fi
 
 if (( fail == 0 )); then

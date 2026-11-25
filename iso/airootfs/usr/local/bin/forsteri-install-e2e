@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Forsteri installer: unattended end-to-end run, opt-in with the kernel cmdline
+# forsteri.install_e2e=1. This never runs on a normal live boot.
+#
+# It answers the installer's prompts from a file and calls the same
+# forsteri-install flow a person uses: sync, partition, format, base install,
+# chroot configuration, desktop profile, bootloader. Nothing here writes a
+# phase or formats a filesystem behind the installer's back.
+set -uo pipefail
+
+DISK=${FORSTERI_E2E_DISK:-/dev/vda}
+USER_NAME=${FORSTERI_E2E_USER:-forsteri}
+USER_PASSWORD=${FORSTERI_E2E_PASSWORD:-forsteri}
+ROOT_PASSWORD=${FORSTERI_E2E_ROOT_PASSWORD:-forsteri-root}
+HOSTNAME=${FORSTERI_E2E_HOSTNAME:-forsteri-e2e}
+DESKTOP=${FORSTERI_E2E_DESKTOP:-hyprland}
+THEME=${FORSTERI_E2E_THEME:-ember}
+ANSWERS=/run/forsteri-e2e-answers.conf
+
+exec >>/dev/ttyS0 2>&1
+
+marker() { printf 'FORSTERI-INSTALL-E2E: %s\n' "$*"; }
+fail() {
+  marker "FAIL: $*"
+  sync
+  systemctl poweroff -f || true
+  exit 1
+}
+
+marker "starting unattended install on $DISK ($DESKTOP)"
+[[ -b $DISK ]] || fail "$DISK is not a block device"
+command -v forsteri-install >/dev/null || fail "forsteri-install is missing"
+
+# The installer's first act is `forst sync`; wait for the DHCP lease and DNS
+# before starting so a slow virtual NIC does not look like a repository failure.
+network=0
+for _ in $(seq 1 120); do
+  if curl -fsS --max-time 5 -o /dev/null \
+    https://geo.mirror.pkgbuild.com/core/os/x86_64/core.db; then
+    network=1
+    break
+  fi
+  sleep 1
+done
+(( network == 1 )) || fail "the live medium has no working network/DNS"
+marker "network is up"
+
+password_key="password_for_$(printf '%s' "$USER_NAME" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '_' | sed 's/^_//; s/_$//')"
+umask 077
+: >"$ANSWERS"
+cat >"$ANSWERS" <<EOF
+menu.disk=$DISK
+menu.filesystem=ext4
+input.erase=ERASE
+input.hostname=$HOSTNAME
+input.user=$USER_NAME
+$password_key=$USER_PASSWORD
+password.root_password=$ROOT_PASSWORD
+input.timezone=UTC
+menu.locale=en_US.UTF-8
+menu.keyboard=us
+menu.desktop=$DESKTOP
+menu.theme=$THEME
+yesno.install=yes
+yesno.resume=no
+EOF
+chmod 600 "$ANSWERS"
+marker "answer file written; starting forsteri-install --unattended"
+
+export FORSTERI_UNATTENDED_CONSOLE=1
+/usr/local/bin/forsteri-install --unattended "$ANSWERS"
+status=$?
+
+marker "installer exited with status $status"
+[[ -f /var/log/forsteri-install.log ]] && tail -n 60 /var/log/forsteri-install.log
+sync
+systemctl poweroff -f || true
+exit "$status"

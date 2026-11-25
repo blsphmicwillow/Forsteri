@@ -25,6 +25,11 @@ xz
 gzip
 bzip2
 curl
+ca-certificates
+
+# the installer validates zoneinfo names and offers btrfs
+tzdata
+btrfs-progs
 
 # live-media tooling
 grub
