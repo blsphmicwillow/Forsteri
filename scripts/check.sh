@@ -121,6 +121,13 @@ for asset in logo-512.png logo-1024.png brand-lockup-light.png plymouth-logo.png
   fi
 done
 
+if [[ -s desktop/skel/common/.config/fastfetch/config.jsonc && \
+  -s desktop/skel/common/.config/fastfetch/ascii.txt ]]; then
+  ok "desktop/skel/common/.config/fastfetch"
+else
+  bad "fastfetch config or colored ASCII logo is missing"
+fi
+
 if (( fail == 0 )); then
   note ""
   note "all checks passed"

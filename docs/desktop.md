@@ -139,10 +139,17 @@ remains the desktop's own business.
 ```
 .config/autostart/forsteri-theme.desktop
 .config/hypr/theme-vars.conf          the ember defaults, rewritten per theme
+.config/fastfetch/config.jsonc       fastfetch layout
+.config/fastfetch/ascii.txt          colored emblem logo
 ```
 
 `/usr/local/bin/forsteri-theme-apply` is the single place that writes any of
 this; it is safe to re-run and skips keys the running desktop does not have.
+
+The fastfetch logo was generated from `branding/source/emblem.webp` with
+[Dollique/fastfetch-colorful-ASCII-generator](https://github.com/Dollique/fastfetch-colorful-ASCII-generator).
+Its near-black shades are lifted slightly so the penguin silhouette remains
+visible on the dark terminal, while the gold, ivory and coral are unchanged.
 
 ## Login screen
 
