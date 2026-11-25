@@ -84,7 +84,7 @@ MangoWC reads `/etc/mango/config.conf` (shipped by the package) and
   `/etc/mango/config.conf` by the package, and inventing keybindings here would
   just be a second, worse default.
 
-## Themes: four look-and-feel codenames
+## Themes: seven look-and-feel codenames
 
 Themes are a second, separate codename namespace from the package codenames
 (`colony`, `ice`, `nest`, `tundra`, `aurora`). A theme is one file:
@@ -103,6 +103,18 @@ variables the shipped config sources.
 | `drift` | macOS | translucent dark panels, amber accent, controls on the left, 12px |
 | `monolith` | Nothing OS | pure black, a single red accent, 2px corners, monospace UI, no blur |
 | `shelf` | Windows | flat grey, blue accent, controls on the right, 4px, no blur |
+| `glass` | macOS | cool-grey translucent panes, blue accent, left traffic lights, 14px |
+| `void` | Nothing OS | pure black monochrome, dot-matrix mono UI, 2px, no blur |
+| `panes` | Windows | layered flat panes, Windows blue, controls on the right, 4px |
+
+The three new bundles (`glass`, `void`, `panes`) are independent of the
+package codenames and of the older four looks. Each is presentation data only:
+GTK and Qt colours, an icon-theme name, button placement, a Quickshell layout
+hint (`.config/quickshell/forsteri-theme.json`) and optional `ICONS`/`LAYOUT`/
+`QT_STYLE` fields. No theme package contains kernel, boot or security code.
+The `void` bundle deliberately inherits the monochrome look of `monolith`,
+and `glass`/`panes` the macOS/Windows shapes of `drift`/`shelf`; the older
+names remain valid.
 
 ```bash
 forsteri-theme-apply --list        # installed codenames
@@ -115,9 +127,10 @@ The installer asks for a codename and writes the answer to
 on first login. The same file is re-read by every later run.
 
 What a theme can change is deliberately narrow: colours, radii, fonts, button
-placement, blur and the Hyprland accent. It does not install packages or swap
-panel layouts, so a theme never turns KDE into a macOS clone; it makes Forsteri
-*read* like one. Per-desktop layout remains the desktop's own business.
+placement, blur, the Hyprland accent and, for Quickshell, a layout hint. It does
+not install packages or rearrange KDE/GNOME panels, so a theme never turns KDE
+into a macOS clone; it makes Forsteri *read* like one. Per-desktop layout
+remains the desktop's own business.
 
 ### Shared skel
 

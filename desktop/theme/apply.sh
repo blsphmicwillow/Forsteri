@@ -53,12 +53,16 @@ for key in CODENAME NAME ACCENT BG FG BASE CARD BORDER RADIUS BUTTON_RADIUS \
   fi
 done
 
+ICONS=${ICONS:-Adwaita}
+LAYOUT=${LAYOUT:-default}
+QT_STYLE=${QT_STYLE:-Breeze}
+
 if [[ $CODENAME != "$codename" ]]; then
   echo "forsteri-theme-apply: $conf says CODENAME=$CODENAME, directory is $codename" >&2
   exit 1
 fi
 
-rgb() { printf '%d,%d,%d' "0x${1:1:2}" "0x${3:2}" "0x${5:2}"; }
+rgb() { printf '%d,%d,%d' "0x${1:1:2}" "0x${1:3:2}" "0x${1:5:2}"; }
 ACCENT_RGB=$(rgb "$ACCENT")
 BG_RGB=$(rgb "$BG")
 FG_RGB=$(rgb "$FG")
@@ -68,7 +72,7 @@ BORDER_RGB=$(rgb "$BORDER")
 
 mkdir -p "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0" \
   "$HOME/.config/forsteri" "$HOME/.config/hypr" \
-  "$HOME/.local/share/color-schemes"
+  "$HOME/.config/quickshell" "$HOME/.local/share/color-schemes"
 
 # ---------------------------------------------------------------------------
 # GTK
@@ -296,6 +300,7 @@ if command -v gsettings >/dev/null 2>&1; then
   gsettings set org.gnome.desktop.interface accent-color "$GNOME_ACCENT" 2>/dev/null || true
   gsettings set org.gnome.desktop.interface font-name "$FONT" 2>/dev/null || true
   gsettings set org.gnome.desktop.interface monospace-font-name "$MONO" 2>/dev/null || true
+  gsettings set org.gnome.desktop.interface icon-theme "$ICONS" 2>/dev/null || true
   gsettings set org.gnome.desktop.interface cursor-size 24 2>/dev/null || true
 fi
 
@@ -308,6 +313,21 @@ if [[ -n ${HYPRLAND_INSTANCE_SIGNATURE:-} ]] && command -v hyprctl >/dev/null 2>
   hyprctl reload >/dev/null 2>&1 || true
   hyprctl setcursor Adwaita 24 >/dev/null 2>&1 || true
 fi
+
+# Quickshell draws its own bar; it reads these layout hints instead of
+# hard-coding a macOS/NothingOS/Windows arrangement.
+cat >"$HOME/.config/quickshell/forsteri-theme.json" <<QSTHEME
+{
+  "codename": "$CODENAME",
+  "layout": "$LAYOUT",
+  "accent": "$ACCENT",
+  "background": "$BG",
+  "foreground": "$FG",
+  "icons": "$ICONS",
+  "qt_style": "$QT_STYLE",
+  "radius": $RADIUS
+}
+QSTHEME
 
 # Record the choice for the next login and for the installer's summary.
 printf '%s\n' "$CODENAME" >"$HOME/.config/forsteri/theme"
