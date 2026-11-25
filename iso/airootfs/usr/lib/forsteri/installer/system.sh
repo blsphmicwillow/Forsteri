@@ -87,10 +87,14 @@ set -euo pipefail
 # shellcheck source=/dev/null
 . /root/forsteri-install.env
 
+say() { printf 'FORSTERI-CHROOT: %s\n' "$*" >/dev/ttyS0 2>/dev/null || true; }
+
+say "timezone and clock"
 echo "forsteri: timezone $TARGET_TIMEZONE"
 ln -sf "/usr/share/zoneinfo/$TARGET_TIMEZONE" /etc/localtime
 hwclock --systohc
 
+say "locale"
 echo "forsteri: locale $TARGET_LOCALE"
 sed -i "s/^#\(${TARGET_LOCALE}\)/\1/" /etc/locale.gen
 locale-gen
@@ -104,6 +108,12 @@ cat >/etc/hosts <<HOSTS
 127.0.1.1   $TARGET_HOSTNAME.localdomain $TARGET_HOSTNAME
 HOSTS
 
+say "system users and groups"
+# basic.conf creates wheel/video/audio/input/storage/optical; useradd below
+# needs them to exist first.
+systemd-sysusers
+
+say "accounts"
 echo "forsteri: accounts"
 printf 'root:%s\n' "$TARGET_ROOT_PASSWORD" | chpasswd
 if ! id -u "$TARGET_USER" >/dev/null 2>&1; then
@@ -114,14 +124,15 @@ install -d -m 750 /etc/sudoers.d
 printf '%%wheel ALL=(ALL:ALL) ALL\n' >/etc/sudoers.d/10-wheel
 chmod 440 /etc/sudoers.d/10-wheel
 
+say "services"
 echo "forsteri: services"
 systemd-machine-id-setup
-systemd-sysusers
 systemctl preset-all >/dev/null
 systemctl enable NetworkManager.service
 systemctl enable systemd-timesyncd.service
 systemctl enable fstrim.timer
 
+say "initramfs"
 echo "forsteri: initramfs (with plymouth)"
 if ! grep -qE '^HOOKS=\([^)]*\bplymouth\b' /etc/mkinitcpio.conf; then
   sed -i -E 's/^HOOKS=\((base)( udev)? /HOOKS=(\1\2 plymouth /' /etc/mkinitcpio.conf
@@ -129,6 +140,7 @@ fi
 mkinitcpio -P
 
 rm -f /root/forsteri-install.env
+say "chroot setup complete"
 echo "forsteri: chroot setup complete"
 CHROOT_SCRIPT
   chmod 700 "$TARGET/root/forsteri-setup.sh"
