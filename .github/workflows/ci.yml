@@ -1,0 +1,70 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  forst:
+    name: forst and installer tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Test forst and the installer
+        run: ./scripts/check.sh
+
+  iso:
+    name: ISO build and QEMU boot test
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the distribution
+        uses: actions/checkout@v4
+        with:
+          path: distro
+          persist-credentials: false
+      - name: Check out the FrostKernel tree
+        uses: actions/checkout@v4
+        with:
+          repository: blsphmicwillow/FosteriOS
+          path: FosteriOS
+          # The kernel repository is private. Add FOSTERIOS_TOKEN as a
+          # repository secret with read access to it; GITHUB_TOKEN cannot
+          # cross repository boundaries.
+          token: ${{ secrets.FOSTERIOS_TOKEN || github.token }}
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install ISO test tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            qemu-system-x86 qemu-utils xorriso util-linux
+      - name: Build the ISO (pinned archiso container)
+        working-directory: distro
+        env:
+          # Keep in sync with iso/tool-versions.env.
+          ARCHISO_VERSION: "92-1"
+          MKINITCPIO_VERSION: "42.2-1"
+          FOSTERIOS_DIR: ${{ github.workspace }}/FosteriOS
+        run: ./scripts/build-iso.sh --docker
+      - name: Boot the ISO and run the NT serial test
+        working-directory: distro
+        env:
+          TIMEOUT: "600"
+        run: ./scripts/test-iso.sh
+      - name: Upload the ISO and serial log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forsteri-iso
+          path: |
+            distro/out/*.iso
+            distro/build/iso-test/serial.log
+          if-no-files-found: warn
+          retention-days: 7

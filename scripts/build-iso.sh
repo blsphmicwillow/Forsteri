@@ -14,8 +14,30 @@ OUT="$ROOT/out"
 WORK="${FORSTERI_WORK:-/tmp/forsteri-work}"
 MODE=${1:-}
 FOSTERIOS_DIR=${FOSTERIOS_DIR:-"$ROOT/../FosteriOS"}
+if [[ ! -d $FOSTERIOS_DIR && -d $ROOT/FosteriOS ]]; then
+  FOSTERIOS_DIR="$ROOT/FosteriOS"
+fi
+
+# shellcheck source=../iso/tool-versions.env
+. "$PROFILE/tool-versions.env"
+ARCHISO_VERSION=${ARCHISO_VERSION:-92-1}
+MKINITCPIO_VERSION=${MKINITCPIO_VERSION:-42.2-1}
 
 log() { printf '\n==> %s\n' "$*"; }
+
+check_tool_version() {
+  local pkg=$1 want=$2 got
+  got=$(pacman -Q "$pkg" 2>/dev/null | awk '{print $2}')
+  if [[ $got != "$want" ]]; then
+    if [[ ${FORSTERI_ALLOW_TOOL_DRIFT:-0} == 1 ]]; then
+      echo "build-iso: warning: $pkg $got differs from pinned $want" >&2
+    else
+      echo "build-iso: $pkg $got is installed, but this tree pins $want" >&2
+      echo "build-iso: set FORSTERI_ALLOW_TOOL_DRIFT=1 to build anyway" >&2
+      exit 1
+    fi
+  fi
+}
 
 log "building forst"
 "$ROOT/scripts/build-forst.sh"
@@ -34,9 +56,6 @@ fi
 log "staging the live share"
 "$ROOT/scripts/stage-share.sh"
 
-log "building the NT personality module for the live kernel"
-FOSTERIOS_DIR="$FOSTERIOS_DIR" "$ROOT/scripts/build-nt-module.sh"
-
 mkdir -p "$OUT"
 
 if [[ $MODE == "--docker" ]]; then
@@ -49,8 +68,9 @@ if [[ $MODE == "--docker" ]]; then
     -v "$ROOT:/build" \
     -v "$FOSTERIOS_DIR:/fosterios:ro" \
     -w /build \
+    -e ARCHISO_VERSION="$ARCHISO_VERSION" -e MKINITCPIO_VERSION="$MKINITCPIO_VERSION" \
     archlinux:latest \
-    bash -lc 'pacman -Syu --noconfirm --needed archiso base-devel linux-headers &&
+    bash -lc 'pacman -Syu --noconfirm --needed "archiso=$ARCHISO_VERSION" "mkinitcpio=$MKINITCPIO_VERSION" base-devel linux-headers rust &&
       FOSTERIOS_DIR=/fosterios /build/scripts/build-nt-module.sh &&
       mkarchiso -v -w /tmp/work -o /build/out /build/iso'
   log "done: $OUT"
@@ -72,6 +92,12 @@ EOF
   echo "build-iso: mkarchiso needs root (it mounts the live root)" >&2
   exit 1
 }
+
+check_tool_version archiso "$ARCHISO_VERSION"
+check_tool_version mkinitcpio "$MKINITCPIO_VERSION"
+
+log "building the NT personality module for the live kernel"
+FOSTERIOS_DIR="$FOSTERIOS_DIR" "$ROOT/scripts/build-nt-module.sh"
 
 log "running mkarchiso"
 mkarchiso -v -w "$WORK" -o "$OUT" "$PROFILE"

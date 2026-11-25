@@ -9,6 +9,9 @@ set -euo pipefail
 
 ROOT=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
 FOSTERIOS_DIR=${FOSTERIOS_DIR:-"$ROOT/../FosteriOS"}
+if [[ ! -f $FOSTERIOS_DIR/kernel/nt/pe.c && -f $ROOT/FosteriOS/kernel/nt/pe.c ]]; then
+	FOSTERIOS_DIR="$ROOT/FosteriOS"
+fi
 DEST="$ROOT/iso/airootfs/usr/lib/forsteri/nt"
 KVER=${FORSTERI_KVER:-}
 
