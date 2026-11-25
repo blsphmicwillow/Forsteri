@@ -21,6 +21,9 @@ exec >>/dev/ttyS0 2>&1
 set -x
 
 marker() { printf 'FORSTERI-INSTALL-E2E: %s\n' "$*"; }
+printf 'FORSTERI-INSTALL-E2E: cmdline: %s\n' "$(cat /proc/cmdline)"
+( journalctl -b -f -o short-precise 2>/dev/null ) >>/dev/ttyS0 &
+journal_pid=$!
 fail() {
   marker "FAIL: $*"
   sync
@@ -90,7 +93,9 @@ if [[ -f /var/log/forsteri-install.log ]]; then
   tail -n 200 /var/log/forsteri-install.log
   echo "--- end installer log ---"
 fi
+kill "$journal_pid" 2>/dev/null || true
 sync
-sleep 10
+# Leave a window in which a premature shutdown is visible in the log.
+sleep 30
 systemctl poweroff -f || true
 exit "$status"
