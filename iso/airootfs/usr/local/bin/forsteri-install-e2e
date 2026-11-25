@@ -8,7 +8,16 @@
 # phase or formats a filesystem behind the installer's back.
 set -uo pipefail
 
-DISK=${FORSTERI_E2E_DISK:-/dev/vda}
+if [[ -n ${FORSTERI_E2E_DISK:-} ]]; then
+  DISK=$FORSTERI_E2E_DISK
+else
+  target_link=/dev/disk/by-id/virtio-forsteri-e2e-target
+  if [[ -e $target_link ]]; then
+    DISK=$(readlink -f "$target_link")
+  else
+    DISK=/dev/vda
+  fi
+fi
 USER_NAME=${FORSTERI_E2E_USER:-forsteri}
 USER_PASSWORD=${FORSTERI_E2E_PASSWORD:-forsteri}
 ROOT_PASSWORD=${FORSTERI_E2E_ROOT_PASSWORD:-forsteri-root}
@@ -20,7 +29,7 @@ ANSWERS=/run/forsteri-e2e-answers.conf
 exec >>/dev/ttyS0 2>&1
 set -x
 
-marker() { printf 'FORSTERI-INSTALL-E2E: %s\n' "$*"; }
+marker() { printf 'FORSTERI-INSTALL-E2E: %s\n' "$*" >/dev/ttyS0; }
 printf 'FORSTERI-INSTALL-E2E: cmdline: %s\n' "$(cat /proc/cmdline)"
 ( journalctl -b -f -o short-precise 2>/dev/null ) >>/dev/ttyS0 &
 journal_pid=$!
@@ -87,11 +96,16 @@ set -x
 kill "$tail_pid" 2>/dev/null || true
 wait "$tail_pid" 2>/dev/null || true
 
+# The serial getty can hang up an inherited tty handle; reopen it before the
+# one diagnostic that matters if the installer exits early.
+exec >>/dev/ttyS0 2>&1
 marker "installer exited with status $status"
 if [[ -f /var/log/forsteri-install.log ]]; then
-  echo "--- installer log tail ---"
-  tail -n 200 /var/log/forsteri-install.log
-  echo "--- end installer log ---"
+  {
+    echo "--- installer log tail ---"
+    tail -n 200 /var/log/forsteri-install.log
+    echo "--- end installer log ---"
+  } >/dev/ttyS0
 fi
 kill "$journal_pid" 2>/dev/null || true
 sync

@@ -120,7 +120,7 @@ qemu_run "$live_log" "$TIMEOUT" \
   -kernel "$WORK/vmlinuz-linux" \
   -initrd "$WORK/initramfs-linux.img" \
   -append "archisobasedir=forsteri archisolabel=$label console=ttyS0,115200 forsteri.install_e2e=1" \
-  -drive file="$WORK/disk.img",if=virtio,format=raw,cache=unsafe \
+  -drive file="$WORK/disk.img",if=virtio,format=raw,cache=unsafe,serial=forsteri-e2e-target \
   -drive file="$ISO",if=none,format=raw,readonly=on,id=isodisk \
   -device virtio-blk-pci,drive=isodisk \
   -nic user,model=virtio-net-pci
@@ -336,7 +336,7 @@ boot_log="$WORK/installed-boot.log"
 echo "== booting the installed disk through its own UEFI GRUB entry"
 qemu_run "$boot_log" "$BOOT_TIMEOUT" \
   -boot order=c \
-  -drive file="$WORK/disk.img",if=virtio,format=raw,cache=unsafe \
+  -drive file="$WORK/disk.img",if=virtio,format=raw,cache=unsafe,serial=forsteri-e2e-target \
   -nic user,model=virtio-net-pci
 
 if grep -q 'FORSTERI-E2E-BOOT: FAIL' "$boot_log"; then
