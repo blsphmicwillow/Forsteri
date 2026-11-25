@@ -8,11 +8,11 @@ Two artefacts can be built: the ISO, and the `nest` package repository.
 |------|-----|
 | Rust (cargo, 1.70+) | builds `forst`; no crates are downloaded |
 | Python 3 + Pillow | renders the brand assets (committed copies also work) |
-| archiso | builds the ISO; needs root and an Arch host |
+| archiso 92-1 + mkinitcpio 42.2-1 | pinned ISO tools; see `iso/tool-versions.env` |
 | docker | alternative: builds the ISO inside `archlinux:latest` |
 | pacman tools (`makepkg`, `repo-add`) | builds `nest` packages |
 | `linux-headers` matching the live kernel | builds the NT personality module |
-| a FosteriOS checkout | kernel-side NT module source; set `FOSTERIOS_DIR` if it is not a sibling |
+| a FosteriOS checkout | FrostKernel source; defaults to `./FosteriOS`, then `../FosteriOS` |
 
 ## The ISO
 
@@ -28,10 +28,39 @@ The script:
 2. `branding/render_assets.py` -- regenerates `branding/dist/*.png`.
 3. `scripts/stage-share.sh` -- copies branding, profiles, skel homes, the SDDM
    theme and the session entry into `iso/airootfs/usr/share/forsteri/`.
-4. `scripts/build-nt-module.sh` -- builds `ntpersonality.ko` from the FosteriOS
+4. `scripts/build-nt-module.sh` -- builds `ntpersonality.ko` from the FrostKernel
    checkout against the live kernel's headers and installs it into
    `iso/airootfs/usr/lib/forsteri/nt/`.
 5. `mkarchiso -v -w /tmp/forsteri-work -o out iso/`.
+
+The host build refuses `archiso`/`mkinitcpio` versions other than the pins in
+`iso/tool-versions.env`; `FORSTERI_ALLOW_TOOL_DRIFT=1` is the explicit override.
+The Docker path installs those exact versions.
+
+## Repository signatures
+
+`forst` checks the trust anchor each upstream actually provides:
+
+* **pacman (colony/ice/nest):** detached `.sig` for every package, checked
+  with the Arch keyring, exactly as pacman does. Arch no longer signs `*.db`;
+  if a mirror does publish a database signature, forst verifies that too.
+* **Debian (tundra):** clearsigned `InRelease` with the archive keyring, whose
+  SHA256 section binds `Packages.xz`; every package must match that checksum.
+* **Fedora (aurora):** Fedora does not publish `repomd.xml.asc`, so forst
+  verifies each RPM with `rpmkeys` against the pinned Fedora key. A mirror that
+  does publish a repomd signature also gets it verified.
+
+A missing signature, keyring, checksum or a bad digest is a hard error; there
+is no unsigned fallback. The public archive keyrings live in
+`pkg/forst/keys/` and are staged into `/usr/share/forsteri/keyrings/`.
+Refresh the Debian/Fedora anchors with pinned fingerprints:
+
+```bash
+scripts/fetch-keyrings.sh
+```
+
+`nest` must be signed too: use `repo-add --sign` (or an equivalent detached
+`nest.db.sig`). An unsigned local repository will be rejected by design.
 
 Output: `out/forsteri-<date>-x86_64.iso`, UEFI and BIOS.
 

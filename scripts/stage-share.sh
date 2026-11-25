@@ -27,7 +27,7 @@ for asset in logo-512.png plymouth-logo.png plymouth-bullet.png plymouth-track.p
 done
 
 rm -rf "$SHARE"
-install -d "$SHARE"/{installer/profiles,plymouth,grub,wallpapers,sddm,skel,sessions,theme,themes}
+install -d "$SHARE"/{installer/profiles,plymouth,grub,wallpapers,sddm,skel,sessions,theme,themes,keyrings}
 
 # installer data
 install -m644 "$ROOT/installer/base.list" "$SHARE/installer/base.list"
@@ -69,6 +69,17 @@ for theme in "$ROOT"/desktop/themes/*/; do
   name=$(basename "$theme")
   install -d "$SHARE/themes/$name"
   install -m644 "$theme/theme.conf" "$SHARE/themes/$name/theme.conf"
+done
+
+# OpenPGP trust anchors for the Debian and Fedora asset codenames. forst
+# refuses unsigned metadata, so these are part of the live medium, not an
+# optional extra.
+for key in "$ROOT"/pkg/forst/keys/*.gpg; do
+  [[ -f $key ]] || {
+    echo "stage-share: no forst keyrings found (run scripts/fetch-keyrings.sh)" >&2
+    exit 1
+  }
+  install -m644 "$key" "$SHARE/keyrings/"
 done
 
 log "share staged at $SHARE"

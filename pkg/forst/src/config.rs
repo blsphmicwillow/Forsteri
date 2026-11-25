@@ -61,6 +61,9 @@ pub struct Repo {
     pub component: String,
     pub enabled: bool,
     pub description: String,
+    /// OpenPGP keyring used for this codename's signed metadata. Empty means
+    /// "use the format's shipped keyring"; an explicit path is authoritative.
+    pub keyring: String,
 }
 
 impl Repo {
@@ -76,10 +79,10 @@ impl Repo {
             component: String::new(),
             enabled: true,
             description: description.to_string(),
+            keyring: String::new(),
         }
     }
 
-    #[cfg(test)]
     pub fn debian(
         codename: &str,
         url: &str,
@@ -98,10 +101,10 @@ impl Repo {
             component: component.to_string(),
             enabled: true,
             description: description.to_string(),
+            keyring: String::new(),
         }
     }
 
-    #[cfg(test)]
     pub fn rpm(codename: &str, url: &str, arch: &str, description: &str) -> Repo {
         Repo {
             codename: codename.to_string(),
@@ -113,7 +116,17 @@ impl Repo {
             component: String::new(),
             enabled: true,
             description: description.to_string(),
+            keyring: String::new(),
         }
+    }
+
+    /// Arch does not sign repository databases (pacman trusts package
+    /// signatures), and Fedora does not sign repomd either. Both formats are
+    /// verified at the package boundary. Debian instead signs its metadata
+    /// and binds the Packages checksum, so it does not need a per-package
+    /// signature.
+    pub fn requires_package_signature(&self) -> bool {
+        matches!(self.format, Format::Pacman | Format::Rpm)
     }
 
     /// True for codenames that belong to Forsteri's own package base.
@@ -131,6 +144,36 @@ impl Repo {
             ),
             Format::Rpm => format!("{}/repodata/repomd.xml", self.url),
         }
+    }
+
+    /// URL of the detached signature over `index_url` (pacman/rpm), or of the
+    /// clearsigned Debian `InRelease` document.
+    pub fn signature_url(&self) -> String {
+        match self.format {
+            Format::Pacman => format!("{}.sig", self.index_url()),
+            Format::Debian => format!("{}/dists/{}/InRelease", self.url, self.suite),
+            Format::Rpm => format!("{}/repodata/repomd.xml.asc", self.url),
+        }
+    }
+
+    /// Keyring for signature checks, refusing to fall through to an unrelated
+    /// key when the configured path is bad.
+    pub fn keyring_path(&self) -> Result<PathBuf> {
+        let defaults: &[&str] = match self.format {
+            Format::Pacman => &[
+                "/etc/pacman.d/gnupg/pubring.gpg",
+                "/usr/share/forsteri/keyrings/arch.gpg",
+            ],
+            Format::Debian => &[
+                "/usr/share/forsteri/keyrings/debian.gpg",
+                "/usr/share/keyrings/debian-archive-keyring.gpg",
+            ],
+            Format::Rpm => &[
+                "/usr/share/forsteri/keyrings/fedora.gpg",
+                "/etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-43-primary",
+            ],
+        };
+        crate::sign::keyring_or_default(&self.keyring, defaults)
     }
 
     pub fn package_url(&self, filename: &str) -> String {
@@ -164,6 +207,7 @@ url         = https://geo.mirror.pkgbuild.com/core/os/x86_64
 db          = core
 arch        = x86_64
 enabled     = yes
+keyring     = /etc/pacman.d/gnupg/pubring.gpg
 description = Arch core -- the Forsteri base system
 
 [ice]
@@ -172,6 +216,7 @@ url         = https://geo.mirror.pkgbuild.com/extra/os/x86_64
 db          = extra
 arch        = x86_64
 enabled     = yes
+keyring     = /etc/pacman.d/gnupg/pubring.gpg
 description = Arch extra -- desktops, apps, fonts
 
 [nest]
@@ -180,6 +225,7 @@ url         = file:///srv/forsteri/repo/x86_64
 db          = nest
 arch        = x86_64
 enabled     = yes
+keyring     = /etc/pacman.d/gnupg/pubring.gpg
 description = Forsteri's own packages (branding, themes, quickshell, forst)
 
 [tundra]
@@ -189,6 +235,7 @@ suite       = bookworm
 component   = main
 arch        = amd64
 enabled     = yes
+keyring     = /usr/share/forsteri/keyrings/debian.gpg
 description = Debian stable main -- .deb assets
 
 [aurora]
@@ -196,6 +243,7 @@ format      = rpm
 url         = https://download.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os
 arch        = x86_64
 enabled     = yes
+keyring     = /usr/share/forsteri/keyrings/fedora.gpg
 description = Fedora 43 Everything -- .rpm assets
 "#;
 
@@ -233,6 +281,7 @@ pub fn parse_conf(text: &str) -> Result<Vec<Repo>> {
                 component: "main".to_string(),
                 enabled: true,
                 description: String::new(),
+                keyring: String::new(),
             });
             continue;
         }
@@ -269,6 +318,7 @@ pub fn parse_conf(text: &str) -> Result<Vec<Repo>> {
             "component" | "components" => repo.component = value,
             "enabled" => repo.enabled = matches!(value.as_str(), "yes" | "true" | "1" | "on"),
             "description" | "desc" => repo.description = value,
+            "keyring" => repo.keyring = value,
             other => crate::util::warn(&format!("repos.conf: ignoring key {other:?}")),
         }
     }
@@ -333,6 +383,15 @@ mod tests {
             "http://deb.debian.org/debian/dists/bookworm/main/binary-amd64/Packages.xz"
         );
         let aurora = find(&repos, "aurora").unwrap();
+        assert_eq!(colony.keyring, "/etc/pacman.d/gnupg/pubring.gpg");
+        assert_eq!(
+            tundra.signature_url(),
+            "http://deb.debian.org/debian/dists/bookworm/InRelease"
+        );
+        assert_eq!(
+            aurora.signature_url(),
+            "https://download.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/repodata/repomd.xml.asc"
+        );
         assert_eq!(
             aurora.index_url(),
             "https://download.fedoraproject.org/pub/fedora/linux/releases/43/Everything/x86_64/os/repodata/repomd.xml"

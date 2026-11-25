@@ -6,6 +6,7 @@ mod config;
 mod index;
 mod install;
 mod resolve;
+mod sign;
 mod sync;
 mod util;
 
@@ -31,6 +32,7 @@ commands:
   remove <name...>           remove packages and their recorded files
   list                       installed packages
   files <name>               files owned by an installed package
+  verify [name...]           re-hash installed files and report drift
 
 a spec is  name  or  codename:name  (also codename/name), e.g.
   forst install htop                from the base order (colony, ice, nest)
@@ -194,6 +196,7 @@ fn run(args: &[String]) -> util::Result<()> {
         "remove" | "rm" => cmd_remove(&root, &db, &rest, opts.yes),
         "list" | "installed" => cmd_list(&db),
         "files" => cmd_files(&db, &rest),
+        "verify" | "check" => cmd_verify(&root, &db, &rest),
         other => Err(util::Error::new(format!(
             "unknown command {other:?}; try `forst --help`"
         ))),
@@ -508,6 +511,31 @@ fn cmd_list(db: &Path) -> util::Result<()> {
         println!("{:<30} {:<18} {}", meta.name, meta.version, meta.codename);
     }
     println!("\n{} package(s)", metas.len());
+    Ok(())
+}
+
+fn cmd_verify(root: &Path, db: &Path, names: &[String]) -> util::Result<()> {
+    let report = install::verify(db, root, names)?;
+    for drift in &report.drift {
+        println!("{:<10} {} ({})", drift.reason, drift.path, drift.package);
+    }
+    println!(
+        "verified {} file(s) in {} package(s); {} unhashed legacy entr{}",
+        report.checked,
+        report.packages,
+        report.unhashed,
+        if report.unhashed == 1 { "y" } else { "ies" }
+    );
+    if report.unhashed > 0 {
+        util::warn("legacy ledger entries have no digest; reinstall those packages to enable verification");
+    }
+    if !report.drift.is_empty() {
+        return Err(util::Error::new(format!(
+            "{} installed file(s) drifted",
+            report.drift.len()
+        )));
+    }
+    println!("no drift");
     Ok(())
 }
 

@@ -370,6 +370,27 @@ fn tag_text<'a>(block: &'a str, tag: &str) -> Option<&'a str> {
     between(block, &open, &format!("</{tag}>"))
 }
 
+/// Fedora writes `<checksum type="sha256" pkgid="YES">...`, so the plain
+/// `tag_text("checksum")` form silently returned nothing. Require sha256;
+/// do not fall back to MD5/SHA1 values as if they were SHA256.
+fn sha256_checksum(block: &str) -> String {
+    let Some(start) = block.find("<checksum") else {
+        return String::new();
+    };
+    let tail = &block[start..];
+    let Some(open_end) = tail.find('>') else {
+        return String::new();
+    };
+    let attrs = &tail[..open_end];
+    if !attrs.contains("type=\"sha256\"") {
+        return String::new();
+    }
+    tail[open_end + 1..]
+        .split_once("</checksum>")
+        .map(|(value, _)| value.trim().to_string())
+        .unwrap_or_default()
+}
+
 fn attr<'a>(block: &'a str, tag: &str, attribute: &str) -> Option<&'a str> {
     let open = format!("<{tag} ");
     let element = between(block, &open, ">")?;
@@ -435,7 +456,7 @@ pub fn parse_rpm_primary(xml: &str, repo: &Repo) -> Vec<Package> {
         } else {
             version
         };
-        let checksum = tag_text(block, "checksum").unwrap_or("").trim().to_string();
+        let checksum = sha256_checksum(block);
         let size: u64 = attr(block, "size", "package")
             .and_then(|v| v.parse().ok())
             .unwrap_or(0);
@@ -596,6 +617,7 @@ mod tests {
         assert_eq!(p.filename, "Packages/0/0ad-0.27.1-4.fc43.x86_64.rpm");
         assert_eq!(p.depends, vec!["0ad-data"]);
         assert_eq!(p.provides, vec!["0ad"]);
+        assert_eq!(p.sha256, "3f2334");
     }
 
     #[test]
@@ -634,5 +656,63 @@ mod tests {
         assert_eq!(back.get("acl").unwrap().groups, vec!["base"]);
         assert!(back.get("nope").is_none());
         fs::remove_dir_all(&dir).ok();
+    }
+
+    /// A small deterministic corpus for the three parsers. It combines
+    /// truncations of valid structures with pseudo-random noise; the contract
+    /// is "never panic, never over-allocate", not "extract meaning from junk".
+    #[test]
+    fn parsers_survive_hostile_input() {
+        use std::panic::{catch_unwind, AssertUnwindSafe};
+
+        fn tar_bytes(desc: &str) -> Vec<u8> {
+            let mut tar = Vec::new();
+            let payload = desc.as_bytes();
+            let mut header = [0u8; 512];
+            let name = b"acl-2.4.0-1/desc";
+            header[..name.len()].copy_from_slice(name);
+            header[100..108].copy_from_slice(b"0000644\0");
+            header[124..136].copy_from_slice(format!("{:011o}\0", payload.len()).as_bytes());
+            header[156] = b'0';
+            header[257..263].copy_from_slice(b"ustar\0");
+            header[263..265].copy_from_slice(b"00");
+            let sum: u32 = header.iter().map(|&b| b as u32).sum();
+            header[148..156].copy_from_slice(format!("{:06o}\0 ", sum).as_bytes());
+            tar.extend_from_slice(&header);
+            tar.extend_from_slice(payload);
+            let pad = (512 - payload.len() % 512) % 512;
+            tar.extend(std::iter::repeat(0u8).take(pad + 1024));
+            tar
+        }
+
+        let desc = "%FILENAME%\nacl.pkg.tar.zst\n\n%NAME%\nacl\n\n%VERSION%\n1\n\n%ARCH%\nx86_64\n\n";
+        let valid_tar = tar_bytes(desc);
+        let valid_deb = "Package: acl\nVersion: 1\nArchitecture: amd64\nFilename: pool/a.deb\nSHA256: aa\n\n";
+        let valid_rpm = "<package><name>acl</name><arch>x86_64</arch><version epoch=\"0\" ver=\"1\" rel=\"1\"/><location href=\"a.rpm\"/></package>";
+
+        let mut seed: u64 = 0x5eed_c0de_f00d_beef;
+        let mut next = || {
+            seed = seed.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+            seed
+        };
+
+        for i in 0..96usize {
+            let len = (next() as usize % 1024) + i % 7;
+            let noise: Vec<u8> = (0..len).map(|_| next() as u8).collect();
+            let cut = next() as usize % (valid_tar.len() + 1);
+            let tar_cut = valid_tar[..cut].to_vec();
+            assert!(catch_unwind(AssertUnwindSafe(|| {
+                let _ = parse_pacman_db(&noise, &repo(Format::Pacman));
+                let _ = parse_pacman_db(&tar_cut, &repo(Format::Pacman));
+                let text = String::from_utf8_lossy(&noise);
+                let _ = parse_debian_packages(&text, &repo(Format::Debian));
+                let deb_cut = &valid_deb[..valid_deb.len().min(cut)];
+                let _ = parse_debian_packages(deb_cut, &repo(Format::Debian));
+                let _ = parse_rpm_primary(&text, &repo(Format::Rpm));
+                let rpm_cut = &valid_rpm[..valid_rpm.len().min(cut)];
+                let _ = parse_rpm_primary(rpm_cut, &repo(Format::Rpm));
+            }))
+            .is_ok(), "parser panicked on iteration {i}");
+        }
     }
 }

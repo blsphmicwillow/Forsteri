@@ -471,6 +471,9 @@ impl FsKind {
 pub struct FsEntry {
     pub kind: FsKind,
     pub path: String,
+    /// SHA256 of the installed regular file. Empty for directories, symlinks
+    /// and ledgers written by older forst versions.
+    pub sha256: String,
 }
 
 fn place(
@@ -540,6 +543,11 @@ fn place(
 // ---------------------------------------------------------------------------
 // tar
 // ---------------------------------------------------------------------------
+
+/// Upper bound for one buffered archive member. Package payloads larger than
+/// this must be split by their packager; refusing them keeps a hostile header
+/// from turning into a multi-gigabyte allocation.
+pub const MAX_MEMBER: usize = 64 * 1024 * 1024;
 
 pub struct TarEntry {
     pub name: String,
@@ -613,7 +621,7 @@ fn parse_pax(data: &[u8], path: &mut Option<String>, link: &mut Option<String>) 
             Ok(v) => v,
             Err(_) => break,
         };
-        if len == 0 || i + len > bytes.len() {
+        if len == 0 || len > bytes.len() - i {
             break;
         }
         let record = &text[sp + 1..i + len];
@@ -645,6 +653,9 @@ pub fn tar_foreach<R: Read>(
             break;
         }
         let size = tar_number(&hdr[124..136]) as usize;
+        if size > MAX_MEMBER {
+            return err(format!("tar: member size {size} exceeds the {MAX_MEMBER}-byte limit"));
+        }
         let mode = tar_number(&hdr[100..108]) as u32;
         let mut kind = hdr[156] as char;
         if kind == '\0' {
@@ -729,11 +740,16 @@ pub fn tar_extract<R: Read>(reader: &mut R, root: &Path, skip_meta: bool) -> Res
                 out.push(FsEntry {
                     kind: FsKind::Dir,
                     path,
+                    sha256: String::new(),
                 });
             }
             '2' | '1' | '0' | '7' | '\0' => {
                 let kind = place(root, &rel, e.kind, e.mode, &e.data, &e.link)?;
-                out.push(FsEntry { kind, path });
+                out.push(FsEntry {
+                    kind,
+                    path,
+                    sha256: String::new(),
+                });
             }
             _ => {}
         }
@@ -771,6 +787,9 @@ where
             .trim()
             .parse()
             .unwrap_or(0);
+        if size > MAX_MEMBER {
+            return err(format!("ar: member size {size} exceeds the {MAX_MEMBER}-byte limit"));
+        }
         let mut data = vec![0u8; size];
         if size > 0 {
             file.read_exact(&mut data)?;
@@ -868,6 +887,9 @@ pub fn cpio_extract<R: Read>(reader: &mut R, root: &Path) -> Result<Vec<FsEntry>
         }
         let mode = cpio_hex(&h[14..22]) as u32;
         let filesize = cpio_hex(&h[54..62]) as usize;
+        if filesize > MAX_MEMBER {
+            return err(format!("cpio: member size {filesize} exceeds the {MAX_MEMBER}-byte limit"));
+        }
         let namesize = cpio_hex(&h[94..102]) as usize;
         if namesize == 0 || namesize > 65536 {
             return err("cpio: bad name size");
@@ -901,6 +923,7 @@ pub fn cpio_extract<R: Read>(reader: &mut R, root: &Path) -> Result<Vec<FsEntry>
         out.push(FsEntry {
             kind: placed,
             path: rel.to_string_lossy().to_string(),
+            sha256: String::new(),
         });
     }
     Ok(out)
@@ -995,5 +1018,31 @@ mod tests {
         let out = child.wait_with_output().unwrap();
         let back = decompress_bytes(&out.stdout).expect("gunzip");
         assert_eq!(String::from_utf8_lossy(&back), "forsteri");
+    }
+
+    #[test]
+    fn oversized_tar_member_is_rejected_before_allocation() {
+        let mut header = [0u8; 512];
+        header[..1].copy_from_slice(b"x");
+        header[100..108].copy_from_slice(b"0000644\0");
+        // Octal 77777777777 is far beyond the 64 MiB buffering cap. A naive
+        // parser would try to allocate it before noticing the file is short.
+        header[124..136].copy_from_slice(b"77777777777\0");
+        header[156] = b'0';
+        let mut input = std::io::Cursor::new(header.to_vec());
+        let result = tar_foreach(&mut input, &mut |_| Ok(()));
+        assert!(result.is_err(), "oversized tar member must be rejected");
+    }
+
+    #[test]
+    fn oversized_cpio_member_is_rejected_before_allocation() {
+        let mut header = [0u8; 110];
+        header[..6].copy_from_slice(b"070701");
+        header[54..62].copy_from_slice(b"FFFFFFFF");
+        header[94..102].copy_from_slice(b"00000002");
+        let mut input = std::io::Cursor::new(header.to_vec());
+        let root = std::env::temp_dir().join(format!("forst-cpio-{}", std::process::id()));
+        let result = cpio_extract(&mut input, &root);
+        assert!(result.is_err(), "oversized cpio member must be rejected");
     }
 }

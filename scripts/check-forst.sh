@@ -43,7 +43,12 @@ FORST="$CRATE/target/release/forst"
 CACHE="$WORK/cache"
 ARCH_ROOT="$WORK/arch-root"
 DEB_ROOT="$WORK/deb-root"
-CONF="$ROOT/iso/airootfs/etc/forst/repos.conf"
+CONF="$WORK/repos.conf"
+cp "$ROOT/iso/airootfs/etc/forst/repos.conf" "$CONF"
+# The live config relies on keyrings installed under /usr/share/forsteri.
+# Point the network test at the repository's own trust anchors instead.
+sed -i "/^\[tundra\]/a keyring     = $ROOT/pkg/forst/keys/debian.gpg" "$CONF"
+sed -i "/^\[aurora\]/a keyring     = $ROOT/pkg/forst/keys/fedora.gpg" "$CONF"
 
 echo "== building forst"
 if (cd "$CRATE" && cargo build --release --quiet); then
@@ -102,6 +107,13 @@ if [[ $(head -c 4 "$ARCH_ROOT/usr/bin/tree" 2>/dev/null) == $'\x7fELF' ]]; then
   ok "tree is an ELF binary"
 else
   bad "tree is not an ELF binary"
+fi
+
+if forst --root "$ARCH_ROOT" verify >"$WORK/verify.log" 2>&1; then
+  ok "forst verify accepts the fresh install"
+else
+  bad "forst verify reports drift immediately after install"
+  tail -5 "$WORK/verify.log" | sed 's/^/     /'
 fi
 
 # The ledger must survive a second install without duplicating itself.

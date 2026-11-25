@@ -14,7 +14,7 @@ pkgdesc="Forsteri OS package manager: one binary, five codenames"
 arch=('x86_64')
 url="https://forsteri.example"
 license=('MIT')
-depends=('glibc' 'curl' 'zstd' 'xz' 'gzip' 'bzip2')
+depends=('glibc' 'curl' 'zstd' 'xz' 'gzip' 'bzip2' 'gnupg' 'rpm-tools')
 makedepends=('cargo')
 source=("forst-$pkgver.tar.gz" "repos.conf")
 sha256sums=('SKIP' 'SKIP')
@@ -28,4 +28,6 @@ package() {
   cd "forst-$pkgver"
   install -Dm755 target/release/forst "$pkgdir/usr/bin/forst"
   install -Dm644 "$srcdir/repos.conf" "$pkgdir/etc/forst/repos.conf"
+  install -d "$pkgdir/usr/share/forsteri/keyrings"
+  install -m644 keys/arch.gpg keys/debian.gpg keys/fedora.gpg "$pkgdir/usr/share/forsteri/keyrings/"
 }

@@ -1,0 +1,3 @@
+Suite: stable
+SHA256:
+ abcdef  main/binary-amd64/Packages.xz

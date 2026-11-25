@@ -32,6 +32,8 @@ syslinux
 efibootmgr
 arch-install-scripts
 dialog
+gnupg
+rpm-tools
 nano
 less
 hwdetect
