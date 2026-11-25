@@ -108,9 +108,10 @@ QEMU as soon as PASS appears, so a successful boot does not wait for the
 timeout.
 
 GitHub Actions runs the same build and gate in
-`.github/workflows/ci.yml` (run `45548425028`, 2026-11-25, succeeded: ISO built
-with pinned archiso 92 and the QEMU serial log printed `FORSTERI-NT-TEST:
-PASS`). The first CI boot exposed the live image entering
+`.github/workflows/ci.yml` (run `45549117379`, 2026-11-25, succeeded: ISO built
+with pinned archiso 92, the module compiled with `pe.o`, `pe_map.o` and
+`nt_peb.o`, and the QEMU serial log printed `FORSTERI-NT-TEST: PASS`). The
+first CI boot exposed the live image entering
 `systemd-firstboot`'s "Initial Setup" instead of the installer; the live image
 now masks `systemd-firstboot.service`, and `scripts/check.sh` fails if that mask
 is removed.

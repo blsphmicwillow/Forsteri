@@ -77,11 +77,12 @@ Verified in this tree:
   installed into scratch roots, the installed `.deb` binary executed, and the
   ledger checked across install, re-install and remove.
 * The ISO itself: built with `mkarchiso` (archiso 92), booted in QEMU under
-  BIOS, and checked in GitHub Actions. Run `45548425028` built the ISO in the
-  pinned container and the live serial log printed `FORSTERI-NT-TEST: PASS`.
-  The first CI boot caught the live image entering `systemd-firstboot`'s
-  "Initial Setup"; the live image now masks it before autologin starts the
-  installer. See `docs/building.md`.
+  BIOS, and checked in GitHub Actions. Run `45549117379` built the ISO in the
+  pinned container, compiled `ntpersonality.ko` with the M2 `pe_map`/`nt_peb`
+  objects, and the live serial log printed `FORSTERI-NT-TEST: PASS`. The first
+  CI boot caught the live image entering `systemd-firstboot`'s "Initial Setup";
+  the live image now masks it before autologin starts the installer. See
+  `docs/building.md`.
 
 Not yet verified (see `docs/building.md` for the exact gaps):
 
