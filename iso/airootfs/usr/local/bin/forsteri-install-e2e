@@ -18,11 +18,13 @@ THEME=${FORSTERI_E2E_THEME:-ember}
 ANSWERS=/run/forsteri-e2e-answers.conf
 
 exec >>/dev/ttyS0 2>&1
+set -x
 
 marker() { printf 'FORSTERI-INSTALL-E2E: %s\n' "$*"; }
 fail() {
   marker "FAIL: $*"
   sync
+  sleep 5
   systemctl poweroff -f || true
   exit 1
 }
@@ -67,12 +69,28 @@ EOF
 chmod 600 "$ANSWERS"
 marker "answer file written; starting forsteri-install --unattended"
 
-export FORSTERI_UNATTENDED_CONSOLE=1
-/usr/local/bin/forsteri-install --unattended "$ANSWERS"
+# The installer keeps command output in its log file, not the console. Mirror
+# it to the serial port while the run is live, then dump the tail on exit; a
+# forced poweroff can otherwise lose the only diagnostic.
+touch /var/log/forsteri-install.log
+( tail -n +1 -F /var/log/forsteri-install.log 2>/dev/null | sed 's/^/log: /' ) &
+tail_pid=$!
+
+marker "running forsteri-install --unattended"
+set +x
+FORSTERI_UNATTENDED_CONSOLE=1 /usr/local/bin/forsteri-install --unattended "$ANSWERS"
 status=$?
+set -x
+kill "$tail_pid" 2>/dev/null || true
+wait "$tail_pid" 2>/dev/null || true
 
 marker "installer exited with status $status"
-[[ -f /var/log/forsteri-install.log ]] && tail -n 60 /var/log/forsteri-install.log
+if [[ -f /var/log/forsteri-install.log ]]; then
+  echo "--- installer log tail ---"
+  tail -n 200 /var/log/forsteri-install.log
+  echo "--- end installer log ---"
+fi
 sync
+sleep 10
 systemctl poweroff -f || true
 exit "$status"
